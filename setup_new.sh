@@ -1,24 +1,19 @@
 #! /bin/bash -x
 
 shopt -s expand_aliases
-required_commands="git zsh pyenv fzf keychain ssh-askpass"
+required_commands="git zsh fzf keychain"
+linux_required_commands="ssh-askpass"
 
-# curl https://pyenv.run | bash
-
+# all OS
 for com in ${required_commands}; do
   if command -v $com >/dev/null 2>&1; then
           echo "$com available"
   else
           echo "$com is required"
           if uname -o |grep -i linux; then
-            if [ "$com" == "pyenv" ]; then
-              rm -rf ${HOME}/.pyenv
-              curl https://pyenv.run |bash
-            else
-              sudo apt install $com
-              if [ $? != 0 ]; then
-                exit 1
-              fi
+            sudo apt install $com
+            if [ $? != 0 ]; then
+              exit 1
             fi
           elif uname -o |grep -i darwin; then
             brew install $com
@@ -30,6 +25,30 @@ for com in ${required_commands}; do
           fi
   fi
 done
+
+# Linux
+for com in ${linux_required_commands}; do
+  if command -v $com >/dev/null 2>&1; then
+          echo "$com available"
+  else
+    echo "$com is required"
+    if uname -o |grep -i linux; then
+      sudo apt install $com
+      if [ $? != 0 ]; then
+        exit 1
+      fi
+    fi
+  fi
+done
+
+echo "Installing pyenv..."
+rm -rf ${HOME}/.pyenv
+if uname -o |grep -i darwin; then
+  brew install pyenv pyenv-virtualenv
+else
+  curl https://pyenv.run |bash
+fi
+
 
 if ! echo ${SHELL} |grep zsh >/dev/null 2>&1; then
   echo "Setting default shell to zsh..."
