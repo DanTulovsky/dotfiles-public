@@ -41,8 +41,8 @@ fi
 # setup ssh key
 git_identity_file="~/.ssh/identity.git"
 
-if [ ! -f ~/.ssh/identity.git ]; then
-  echo "Generating ssh key for github..."
+if [ ! -f ${git_identity_file} ]; then
+  echo "Generating ssh key for github into ${git_identity_file}"
   ssh-keygen -f ${git_identity_file}
   echo "Add this key to github before continuing: https://github.com/settings/keys"
   echo ""
