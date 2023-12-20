@@ -33,7 +33,7 @@ done
 
 if ! echo ${SHELL} |grep zsh >/dev/null 2>&1; then
   echo "Setting default shell to zsh..."
-  sudo -A -u $USER chsh -s $(which zsh)
+  sudo -S -u $USER chsh -s $(which zsh)
   echo "Please restart shell to switch to zsh and run this again..."
   exit 1
 fi
