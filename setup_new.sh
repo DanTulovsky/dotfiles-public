@@ -12,6 +12,7 @@ for com in ${required_commands}; do
           echo "$com is required"
           if uname -o |grep -i linux; then
             if [ "$com" == "pyenv" ]; then
+              rm -rf ${HOME}/.pyenv
               curl https://pyenv.run |bash
             else
               sudo apt install $com
