@@ -1,7 +1,7 @@
 #! /bin/bash
 
 shopt -s expand_aliases
-required_commands="git zsh pyenv fzf keychain"
+required_commands="git zsh pyenv fzf keychain ssh-askpass"
 
 # curl https://pyenv.run | bash
 
