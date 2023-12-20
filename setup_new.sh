@@ -1,4 +1,4 @@
-#! /bin/bash
+#! /bin/bash -x
 
 shopt -s expand_aliases
 required_commands="git zsh pyenv fzf keychain ssh-askpass"
