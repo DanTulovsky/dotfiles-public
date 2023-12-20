@@ -15,7 +15,7 @@ for com in ${required_commands}; do
               curl https://pyenv.run |bash
             else
               sudo apt install $com
-              if $! != 0; then
+              if [ $! != 0 ]; then
                 exit 1
               fi
             fi
