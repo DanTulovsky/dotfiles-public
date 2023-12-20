@@ -39,7 +39,7 @@ if ! echo ${SHELL} |grep zsh >/dev/null 2>&1; then
 fi
 
 # setup ssh key
-git_identity_file="~/.ssh/identity.git"
+git_identity_file="${HOME}/.ssh/identity.git"
 
 if [ ! -f ${git_identity_file} ]; then
   echo "Generating ssh key for github into ${git_identity_file}"
