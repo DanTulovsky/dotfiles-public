@@ -79,6 +79,10 @@ if ! grep ".cfg" .gitignore >/dev/null 2>&1; then
   echo ".cfg" >> .gitignore
 fi
 
+echo "Starting ssh agent..."
+keychain --nogui ~/.ssh/identity.git
+source ~/.keychain/$(hostname)-sh
+
 echo "Cloning dotfiles..."
 git clone --bare git@github.com:DanTulovsky/dotfiles-config.git ${ZDOTDIR:-$HOME}/.cfg
 config reset --hard HEAD
