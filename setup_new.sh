@@ -1,4 +1,6 @@
 #! /bin/bash -x
+#
+set -e
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain"
