@@ -93,7 +93,7 @@ rm -rf ${ZDOTDIR:-$HOME}/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
 
 # install fonts
-if uname -o |grep -i darwin; then
+if uname |grep -i darwin; then
   brew tap homebrew/cask-fonts
   brew install font-meslo-lg-nerd-font
 else
