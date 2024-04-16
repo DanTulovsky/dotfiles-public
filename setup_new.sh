@@ -234,7 +234,6 @@ rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
 
 echo "Installing pyenv..."
-rm -rf "${HOME}"/.pyenv
 if is_darwin; then
   brew install pyenv pyenv-virtualenv
 else
