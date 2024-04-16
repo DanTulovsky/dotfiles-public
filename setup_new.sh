@@ -182,17 +182,6 @@ if ! echo "${SHELL}" |grep zsh >/dev/null 2>&1; then
   exit 1
 fi
 
-echo "Installing pyenv..."
-rm -rf "${HOME}"/.pyenv
-if is_darwin; then
-  brew install pyenv pyenv-virtualenv
-else
-  curl https://pyenv.run |bash
-fi
-
-echo "Installing python 3.12..."
-pyenv install --skip-existing 3.12
-
 echo "Installing cargo..."
 if ! command -v cargo; then
   curl https://sh.rustup.rs -sSf | sh
@@ -231,6 +220,17 @@ config config --local status.showUntrackedFiles no
 # install zprezto
 rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
+
+echo "Installing pyenv..."
+rm -rf "${HOME}"/.pyenv
+if is_darwin; then
+  brew install pyenv pyenv-virtualenv
+else
+  curl https://pyenv.run |bash
+fi
+
+echo "Installing python 3.12..."
+pyenv install --skip-existing 3.12
 
 # install language servers
 lsp_install
