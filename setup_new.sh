@@ -31,11 +31,11 @@ for com in ${required_commands}; do
 
   for pkg in ${required_packages}; do
           if uname -o |grep -i linux; then
-            if ! sudo apt install -y "${com}"; then
+            if ! sudo apt install -y "${pkg}"; then
               exit 1
             fi
           elif uname -o |grep -i darwin; then
-            if ! brew install "${com}"; then
+            if ! brew install "${pkg}"; then
               exit 1
             fi
           else
