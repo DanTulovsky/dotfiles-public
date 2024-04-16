@@ -232,6 +232,11 @@ if uname -n |grep -i darwin; then
   brew install orbstack
 fi
 
+# install gcloud
+if uname -a |grep linux; then
+  gcloud_linux_install
+fi
+
 # install fonts
 if uname |grep -i darwin; then
   brew tap homebrew/cask-fonts
