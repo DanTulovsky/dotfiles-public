@@ -145,6 +145,7 @@ done
 
 # Linux required packages
 if is_linux; then
+  sudo sed -i -e s/^#deb-src/deb-src/g /etc/apt/sources.list
   sudo apt-get -y build-dep python3
   for pkg in ${linux_required_packages}; do
     if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
