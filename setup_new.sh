@@ -1,10 +1,10 @@
 #! /bin/bash 
 #
 set -e
-set -x
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
+required_packages="htop btop"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger"
 debian_required_packages="snapd"
@@ -28,6 +28,20 @@ for com in ${required_commands}; do
             exit 1
           fi
   fi
+
+  for pkg in ${required_packages}; do
+          if uname -o |grep -i linux; then
+            if ! sudo apt install -y "${com}"; then
+              exit 1
+            fi
+          elif uname -o |grep -i darwin; then
+            if ! brew install "${com}"; then
+              exit 1
+            fi
+          else
+            exit 1
+          fi
+  done
 done
 
 # Linux
