@@ -57,7 +57,7 @@ function docker_linux_install() {
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
-  sudo usermod -aG docker $USER
+  sudo usermod -aG docker "$USER"
 }
 
 gcloud_linux_install() {
