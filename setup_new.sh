@@ -20,6 +20,7 @@ function add_hashicorp_repo() {
  sudo apt update
 }
 
+# language servers
 function lsp_install() {
   sudo npm install -g n
   sudo n stable
