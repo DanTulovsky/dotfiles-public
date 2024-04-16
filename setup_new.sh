@@ -79,7 +79,7 @@ krew_install_plugins() {
     tar zxvf "${KREW}.tar.gz" &&
     ./"${KREW}" install krew
   )
-  rehash
+  hash -r
   ~/.krew_plugins
 }
 
