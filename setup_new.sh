@@ -175,6 +175,13 @@ if is_linux; then
   fi
 fi
 
+if ! echo "${SHELL}" |grep zsh >/dev/null 2>&1; then
+  echo "Setting default shell to zsh..."
+  sudo -u "$USER" chsh -s "$(which zsh)"
+  echo "Please restart shell to switch to zsh and run this again..."
+  exit 1
+fi
+
 echo "Installing pyenv..."
 rm -rf "${HOME}"/.pyenv
 if is_darwin; then
@@ -189,13 +196,6 @@ pyenv install --skip-existing 3.12
 echo "Installing cargo..."
 if ! command -v cargo; then
   curl https://sh.rustup.rs -sSf | sh
-fi
-
-if ! echo "${SHELL}" |grep zsh >/dev/null 2>&1; then
-  echo "Setting default shell to zsh..."
-  sudo -u "$USER" chsh -s "$(which zsh)"
-  echo "Please restart shell to switch to zsh and run this again..."
-  exit 1
 fi
 
 # setup ssh key
