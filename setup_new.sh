@@ -5,6 +5,7 @@ set -e
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain"
 linux_required_commands="ssh-askpass"
+linux_required_packages="build_essential"
 
 # all OS
 for com in ${required_commands}; do
@@ -39,6 +40,20 @@ for com in ${linux_required_commands}; do
     fi
   fi
 done
+
+# Linux required packages
+if uname -o |grep -i linix; then
+  for pkg in ${linux_required_packages}; do
+    if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
+      echo "${pkg} available"
+    else
+      echo "${pkg} is required"
+      if ! sudo apt install "${pkg}"; then
+        exit 1
+      fi
+    fi
+  done
+fi
 
 echo "Installing pyenv..."
 rm -rf "${HOME}"/.pyenv
