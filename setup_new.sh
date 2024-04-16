@@ -73,27 +73,27 @@ krew_install_plugins() {
 
 function is_linux() {
   uname -o > /dev/null 2>&1 |grep -i linux
-  return $?
+  echo $?
 }
 
 function is_darwin() {
   uname -o > /dev/null 2>&1 |grep -i darwin
-  return $?
+  echo $?
 }
 
 function is_debian() {
   uname -n > /dev/null 2>&1 |grep -i debian
-  return $?
+  echo $?
 }
 
 function is_ubuntu() {
   uname -n > /dev/null 2>&1 |grep -i ubuntu
-  return $?
+  echo $?
 }
 
 function is_arm_linx() {
   uname -m > /dev/null 2>&1 |grep -i arm
-  return $?
+  echo $?
 }
 
 for com in ${required_commands}; do
