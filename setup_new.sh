@@ -33,7 +33,12 @@ function lsp_install () {
 }
 
 function docker_linux_install() {
-  dist=${1}
+  if is_debian; then
+    dist="debian"
+  fi
+  if is_ubuntu; then
+    dist="ubuntu"
+  fi
   sudo apt-get update
   sudo apt-get install ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
@@ -249,7 +254,7 @@ fi
 
 # install docker or equivalent
 if is_linux; then
-  docker_linux_install "$(uname -n)"
+  docker_linux_install
 fi
 if is_darwin; then
   brew install orbstack
