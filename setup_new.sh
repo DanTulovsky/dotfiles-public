@@ -237,7 +237,11 @@ echo "Installing pyenv..."
 if is_darwin; then
   brew install pyenv pyenv-virtualenv
 else
-  curl https://pyenv.run |bash
+  if [[ -d ~/.pyenv ]]; then
+    echo "pyenv already installed"
+  else
+    curl https://pyenv.run |bash
+  fi
 fi
 
 echo "Installing python 3.12..."
