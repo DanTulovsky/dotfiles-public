@@ -72,7 +72,7 @@ gcloud_linux_install() {
   sudo apt-get update && sudo apt-get install google-cloud-cli kubectl
 }
 
-krew_install() {
+krew_install_plugins() {
   (
     set -x; cd "$(mktemp -d)" &&
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
