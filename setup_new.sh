@@ -72,6 +72,19 @@ gcloud_linux_install() {
   sudo apt-get update && sudo apt-get install google-cloud-cli kubectl
 }
 
+krew_install() {
+  (
+    set -x; cd "$(mktemp -d)" &&
+    OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
+    ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
+    KREW="krew-${OS}_${ARCH}" &&
+    curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+    tar zxvf "${KREW}.tar.gz" &&
+    ./"${KREW}" install krew
+  )
+  ~/.krew_plugins
+}
+
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
@@ -236,6 +249,9 @@ fi
 if uname -a |grep -i linux; then
   gcloud_linux_install
 fi
+
+# install krew
+krew_install_plugins
 
 # install fonts
 if uname |grep -i darwin; then
