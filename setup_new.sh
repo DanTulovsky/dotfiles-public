@@ -47,6 +47,7 @@ docker_debian_linux_install() {
   sudo apt-get update
 
   sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  sudo usermod -aG docker $USER
 }
 
 docker_ubuntu_linux_install() {
@@ -62,7 +63,9 @@ docker_ubuntu_linux_install() {
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
+  sudo usermod -aG docker $USER
 }
+
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
