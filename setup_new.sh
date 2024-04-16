@@ -72,28 +72,28 @@ krew_install_plugins() {
 }
 
 function is_linux() {
-  uname -o > /dev/null 2>&1 |grep -i linux
-  echo $?
+  uname -o |grep -i linux > /dev/null 2>&1
+  return $?
 }
 
 function is_darwin() {
-  uname -o > /dev/null 2>&1 |grep -i darwin
-  echo $?
+  uname -o |grep -i darwin > /dev/null 2>&1
+  return $?
 }
 
 function is_debian() {
-  uname -n > /dev/null 2>&1 |grep -i debian
-  echo $?
+  uname -n |grep -i debian > /dev/null 2>&1
+  return $?
 }
 
 function is_ubuntu() {
-  uname -n > /dev/null 2>&1 |grep -i ubuntu
-  echo $?
+  uname -n |grep -i ubuntu > /dev/null 2>&1
+  return $?
 }
 
 function is_arm_linx() {
-  uname -m > /dev/null 2>&1 |grep -i arm
-  echo $?
+  uname -m |grep -i arm > /dev/null 2>&1
+  return $?
 }
 
 for com in ${required_commands}; do
