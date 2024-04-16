@@ -6,6 +6,8 @@ shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev"
+debian_required_packages="snapd"
+snap_required_packages="helix"
 
 # all OS
 for com in ${required_commands}; do
@@ -54,6 +56,22 @@ if uname -o |grep -i linux; then
       fi
     fi
   done
+
+  if uname -n |grep -i debian; then
+    for pkg in ${debian_required_packages}; do
+      if ! sudo apt install -y "${pkg}"; then
+        exit 1
+      fi
+    done
+
+    # snap packages
+    for pkg in ${snap_required_packages}; do
+      if ! sudo snap install "${pkg}" --classic; then
+        exit 1
+      fi
+    done
+  fi
+  
 fi
 
 echo "Installing pyenv..."
@@ -65,7 +83,7 @@ else
 fi
 
 echo "Installing python 3.12..."
-pyenv install 3.12
+pyenv install --skip-existing 3.12
 
 echo "Installing cargo..."
 curl https://sh.rustup.rs -sSf | sh
