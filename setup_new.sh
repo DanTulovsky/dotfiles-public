@@ -4,9 +4,9 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
-required_packages="htop btop npm golang"
+required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger bzr"
+linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger bzr apt-transport-https ca-certificates gnupg curl"
 debian_required_packages="snapd"
 snap_required_packages="helix"
 
@@ -64,6 +64,12 @@ docker_ubuntu_linux_install() {
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
   sudo usermod -aG docker $USER
+}
+
+gcloud_linux_install() {
+  curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
+  sudo apt-get update && sudo apt-get install google-cloud-cli kubectl
 }
 
 for com in ${required_commands}; do
