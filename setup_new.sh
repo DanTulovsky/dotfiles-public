@@ -42,7 +42,7 @@ for com in ${linux_required_commands}; do
 done
 
 # Linux required packages
-if uname -o |grep -i linix; then
+if uname -o |grep -i linux; then
   for pkg in ${linux_required_packages}; do
     if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
       echo "${pkg} available"
