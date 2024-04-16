@@ -113,20 +113,20 @@ for com in ${required_commands}; do
       exit 1
     fi
   fi
+done
 
-  for pkg in ${required_packages}; do
-    if is_linux; then
-      if ! sudo apt install -y "${pkg}"; then
-        exit 1
-      fi
-    elif is_darwin; then
-      if ! brew install "${pkg}"; then
-        exit 1
-      fi
-    else
+for pkg in ${required_packages}; do
+  if is_linux; then
+    if ! sudo apt install -y "${pkg}"; then
       exit 1
     fi
-  done
+  elif is_darwin; then
+    if ! brew install "${pkg}"; then
+      exit 1
+    fi
+  else
+    exit 1
+  fi
 done
 
 # Linux
