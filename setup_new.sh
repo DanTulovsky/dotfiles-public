@@ -4,9 +4,9 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
-required_packages="htop btop npm"
+required_packages="htop btop npm golang"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger"
+linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger bzr"
 debian_required_packages="snapd"
 snap_required_packages="helix"
 
