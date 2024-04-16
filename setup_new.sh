@@ -5,7 +5,7 @@ set -e
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build_essential"
+linux_required_packages="build-essential"
 
 # all OS
 for com in ${required_commands}; do
