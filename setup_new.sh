@@ -10,7 +10,7 @@ linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadl
 debian_required_packages="snapd"
 snap_required_packages="helix"
 
-lsp_install () {
+function lsp_install () {
   sudo npm install -g n
   sudo n stable
   sudo npm i -g "awk-language-server@>=0.5.2"
@@ -32,34 +32,17 @@ lsp_install () {
   sudo npm i -g yaml-language-server@next
 }
 
-docker_debian_linux_install() {
+function docker_linux_install() {
+  dist=${1}
   sudo apt-get update
   sudo apt-get install ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  sudo curl -fsSL https://download.docker.com/linux/"${dist}"/gpg -o /etc/apt/keyrings/docker.asc
   sudo chmod a+r /etc/apt/keyrings/docker.asc
 
   # Add the repository to Apt sources:
   echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-  sudo apt-get update
-
-  sudo apt-get -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  sudo usermod -aG docker $USER
-}
-
-docker_ubuntu_linux_install() {
-  sudo apt-get update
-  sudo apt-get install ca-certificates curl
-  sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-  sudo chmod a+r /etc/apt/keyrings/docker.asc
-
-  # Add the repository to Apt sources:
-  echo \
-    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${dist} \
     $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
     sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
   sudo apt-get update
@@ -88,16 +71,41 @@ krew_install_plugins() {
   ~/.krew_plugins
 }
 
+function is_linux() {
+  uname -o > /dev/null 2>&1 |grep -i linux
+  return $?
+}
+
+function is_darwin() {
+  uname -o > /dev/null 2>&1 |grep -i darwin
+  return $?
+}
+
+function is_debian() {
+  uname -n > /dev/null 2>&1 |grep -i debian
+  return $?
+}
+
+function is_ubuntu() {
+  uname -n > /dev/null 2>&1 |grep -i ubuntu
+  return $?
+}
+
+function is_arm_linx() {
+  uname -m > /dev/null 2>&1 |grep -i arm
+  return $?
+}
+
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
   else
     echo "${com} is required"
-    if uname -o |grep -i linux; then
+    if is_liunx; then
       if ! sudo apt install -y "${com}"; then
         exit 1
       fi
-    elif uname -o |grep -i darwin; then
+    elif is_darwin; then
       if ! brew install "${com}"; then
         exit 1
       fi
@@ -107,11 +115,11 @@ for com in ${required_commands}; do
   fi
 
   for pkg in ${required_packages}; do
-    if uname -o |grep -i linux; then
+    if is_linux; then
       if ! sudo apt install -y "${pkg}"; then
         exit 1
       fi
-    elif uname -o |grep -i darwin; then
+    elif is_darwin; then
       if ! brew install "${pkg}"; then
         exit 1
       fi
@@ -127,7 +135,7 @@ for com in ${linux_required_commands}; do
           echo "${com} available"
   else
     echo "${com} is required"
-    if uname -o |grep -i linux; then
+    if is_linux; then
       if ! sudo apt install -y ${com}; then
         exit 1
       fi
@@ -136,7 +144,7 @@ for com in ${linux_required_commands}; do
 done
 
 # Linux required packages
-if uname -o |grep -i linux; then
+if is_linux; then
   sudo apt-get -y build-dep python3
   for pkg in ${linux_required_packages}; do
     if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
@@ -149,7 +157,7 @@ if uname -o |grep -i linux; then
     fi
   done
 
-  if uname -n |grep -i debian; then
+  if is_debian; then
     for pkg in ${debian_required_packages}; do
       if ! sudo apt install -y "${pkg}"; then
         exit 1
@@ -163,12 +171,11 @@ if uname -o |grep -i linux; then
       fi
     done
   fi
-  
 fi
 
 echo "Installing pyenv..."
 rm -rf "${HOME}"/.pyenv
-if uname -o |grep -i darwin; then
+if is_darwin; then
   brew install pyenv pyenv-virtualenv
 else
   curl https://pyenv.run |bash
@@ -178,7 +185,9 @@ echo "Installing python 3.12..."
 pyenv install --skip-existing 3.12
 
 echo "Installing cargo..."
-curl https://sh.rustup.rs -sSf | sh
+if ! command -v cargo; then
+  curl https://sh.rustup.rs -sSf | sh
+fi
 
 if ! echo "${SHELL}" |grep zsh >/dev/null 2>&1; then
   echo "Setting default shell to zsh..."
@@ -221,35 +230,31 @@ config config --local status.showUntrackedFiles no
 rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
 
-# install homebrewapp
-if [[ -e ~/.homebrew_apps ]]; then
-  if uname -s | grep -i darwin > /dev/null
-  then
-    ~/.homebrew_apps
-  fi
-fi
-
 # install language servers
 lsp_install
 
 # install homebrew
-if uname -o |grep -i darwin; then
+if is_darwin; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # install homebrewapp
+  if [[ -e ~/.homebrew_apps ]]; then
+    if is_darwin; then
+      ~/.homebrew_apps
+    fi
+  fi
 fi
 
 # install docker or equivalent
-if uname -n |grep -i debian; then
-  docker_debian_linux_install
+if is_linux; then
+  docker_linux_install "$(uname -n)"
 fi
-if uname -n |grep -i ubuntu; then
-  docker_ubuntu_linux_install
-fi
-if uname -n |grep -i darwin; then
+if is_darwin; then
   brew install orbstack
 fi
 
 # install gcloud
-if uname -a |grep -i linux; then
+if is_linux; then
   gcloud_linux_install
 fi
 
@@ -257,7 +262,7 @@ fi
 krew_install_plugins
 
 # install fonts
-if uname |grep -i darwin; then
+if is_darwin; then
   brew tap homebrew/cask-fonts
   brew install font-meslo-lg-nerd-font
 else
