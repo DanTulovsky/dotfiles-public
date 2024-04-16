@@ -5,7 +5,7 @@ set -e
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential build-dep python3"
+linux_required_packages="build-essential"
 
 # all OS
 for com in ${required_commands}; do
@@ -43,6 +43,7 @@ done
 
 # Linux required packages
 if uname -o |grep -i linux; then
+  sudo apt-get build-dep python3
   for pkg in ${linux_required_packages}; do
     if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
       echo "${pkg} available"
