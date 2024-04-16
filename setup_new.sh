@@ -24,10 +24,27 @@ lsp_install () {
   go install golang.org/x/tools/cmd/goimports@latest
   sudo npm i -g vscode-langservers-extracted
   sudo npm i -g sql-language-server
-  brew install hashicorp/tap/terraform-ls
+  if uname -a |grep -i darwin; then
+    brew install hashicorp/tap/terraform-ls
+  fi
   cargo install taplo-cli --locked --features lsp
   sudo npm i -g typescript typescript-language-server
   sudo npm i -g yaml-language-server@next
+}
+
+docker_debian_linux_install() {
+  sudo apt-get update
+  sudo apt-get install ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Add the repository to Apt sources:
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
 }
 
 for com in ${required_commands}; do
@@ -173,6 +190,19 @@ fi
 
 # install language servers
 lsp_install
+
+# install homebrew
+if uname -o |grep -i darwin; then
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+fi
+
+# install docker
+if uname -o |grep -i debian; then
+  docker_debian_linux_install
+fi
+if uname -o |grep -i darwin; then
+  brew install orbstack
+fi
 
 # install fonts
 if uname |grep -i darwin; then
