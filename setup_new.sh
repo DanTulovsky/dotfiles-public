@@ -3,7 +3,7 @@
 set -e
 
 shopt -s expand_aliases
-required_commands="git zsh fzf keychain"
+required_commands="git zsh fzf keychain tmux"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential"
 
@@ -29,12 +29,12 @@ done
 
 # Linux
 for com in ${linux_required_commands}; do
-  if command -v $com >/dev/null 2>&1; then
-          echo "$com available"
+  if command -v ${com} >/dev/null 2>&1; then
+          echo "${com} available"
   else
-    echo "$com is required"
+    echo "${com} is required"
     if uname -o |grep -i linux; then
-      if ! sudo apt install $com; then
+      if ! sudo apt install -y ${com}; then
         exit 1
       fi
     fi
