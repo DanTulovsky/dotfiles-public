@@ -33,12 +33,18 @@ function lsp_install () {
 }
 
 function docker_linux_install() {
+  dist=""
   if is_debian; then
     dist="debian"
   fi
   if is_ubuntu; then
     dist="ubuntu"
   fi
+  if [ -z "${dist}" ]; then
+    echo "Unsupported distribution"
+    return
+  fi
+
   sudo apt-get update
   sudo apt-get install ca-certificates curl
   sudo install -m 0755 -d /etc/apt/keyrings
