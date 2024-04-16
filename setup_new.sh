@@ -63,6 +63,9 @@ else
   curl https://pyenv.run |bash
 fi
 
+echo "Installing python 3.12..."
+pyenv install 3.12
+
 echo "Installing cargo..."
 curl https://sh.rustup.rs -sSf | sh
 
