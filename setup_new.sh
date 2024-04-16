@@ -4,13 +4,30 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
-required_packages="htop btop"
+required_packages="htop btop npm"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger"
 debian_required_packages="snapd"
 snap_required_packages="helix"
 
-# all OS
+lsp_install () {
+        sudo npm i -g "awk-language-server@>=0.5.2"
+        sudo npm i -g bash-language-server
+        sudo npm i -g vscode-langservers-extracted
+        sudo npm i -g dockerfile-language-server-nodejs
+        sudo npm i -g dot-language-server
+        sudo npm i -g graphql-language-service-cli
+        go install golang.org/x/tools/gopls@latest
+        go install github.com/go-delve/delve/cmd/dlv@latest
+        go install golang.org/x/tools/cmd/goimports@latest
+        sudo npm i -g vscode-langservers-extracted
+        sudo npm i -g sql-language-server
+        brew install hashicorp/tap/terraform-ls
+        cargo install taplo-cli --locked --features lsp
+        sudo npm i -g typescript typescript-language-server
+        sudo npm i -g yaml-language-server@next
+}
+
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
