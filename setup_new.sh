@@ -1,6 +1,7 @@
-#! /bin/bash -x
+#! /bin/bash 
 #
 set -e
+set -x
 
 shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
