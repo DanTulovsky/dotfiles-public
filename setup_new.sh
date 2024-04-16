@@ -48,7 +48,7 @@ if uname -o |grep -i linux; then
       echo "${pkg} available"
     else
       echo "${pkg} is required"
-      if ! sudo apt install "${pkg}"; then
+      if ! sudo apt install -y "${pkg}"; then
         exit 1
       fi
     fi
