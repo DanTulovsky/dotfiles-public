@@ -197,10 +197,10 @@ if uname -o |grep -i darwin; then
 fi
 
 # install docker
-if uname -o |grep -i debian; then
+if uname -n |grep -i debian; then
   docker_debian_linux_install
 fi
-if uname -o |grep -i darwin; then
+if uname -n |grep -i darwin; then
   brew install orbstack
 fi
 
