@@ -14,7 +14,7 @@ for com in ${required_commands}; do
   else
           echo "${com} is required"
           if uname -o |grep -i linux; then
-            if ! sudo apt install "${com}"; then
+            if ! sudo apt install -y "${com}"; then
               exit 1
             fi
           elif uname -o |grep -i darwin; then
