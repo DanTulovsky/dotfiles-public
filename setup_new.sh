@@ -101,7 +101,7 @@ for com in ${required_commands}; do
     echo "${com} available"
   else
     echo "${com} is required"
-    if is_liunx; then
+    if is_linux; then
       if ! sudo apt install -y "${com}"; then
         exit 1
       fi
