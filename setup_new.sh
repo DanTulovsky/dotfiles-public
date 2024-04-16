@@ -275,7 +275,7 @@ if is_linux; then
   gcloud_linux_install
 fi
 
-# install krew
+# install krew; ignore failures
 krew_install_plugins || true
 
 # install fonts
