@@ -233,7 +233,7 @@ if uname -n |grep -i darwin; then
 fi
 
 # install gcloud
-if uname -a |grep linux; then
+if uname -a |grep -i linux; then
   gcloud_linux_install
 fi
 
