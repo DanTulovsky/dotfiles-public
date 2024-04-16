@@ -13,34 +13,34 @@ snap_required_packages="helix"
 # all OS
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
-          echo "${com} available"
+    echo "${com} available"
   else
-          echo "${com} is required"
-          if uname -o |grep -i linux; then
-            if ! sudo apt install -y "${com}"; then
-              exit 1
-            fi
-          elif uname -o |grep -i darwin; then
-            if ! brew install "${com}"; then
-              exit 1
-            fi
-          else
-            exit 1
-          fi
+    echo "${com} is required"
+    if uname -o |grep -i linux; then
+      if ! sudo apt install -y "${com}"; then
+        exit 1
+      fi
+    elif uname -o |grep -i darwin; then
+      if ! brew install "${com}"; then
+        exit 1
+      fi
+    else
+      exit 1
+    fi
   fi
 
   for pkg in ${required_packages}; do
-          if uname -o |grep -i linux; then
-            if ! sudo apt install -y "${pkg}"; then
-              exit 1
-            fi
-          elif uname -o |grep -i darwin; then
-            if ! brew install "${pkg}"; then
-              exit 1
-            fi
-          else
-            exit 1
-          fi
+    if uname -o |grep -i linux; then
+      if ! sudo apt install -y "${pkg}"; then
+        exit 1
+      fi
+    elif uname -o |grep -i darwin; then
+      if ! brew install "${pkg}"; then
+        exit 1
+      fi
+    else
+      exit 1
+    fi
   done
 done
 
@@ -143,6 +143,14 @@ config config --local status.showUntrackedFiles no
 # install zprezto
 rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
+
+# install homebrewapp
+if [[ -e ~/.homebrew_apps ]]; then
+  if uname -s | grep -i darwin > /dev/null
+  then
+    ~/.homebrew_apps
+  fi
+fi
 
 # install fonts
 if uname |grep -i darwin; then
