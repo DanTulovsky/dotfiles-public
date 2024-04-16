@@ -10,9 +10,21 @@ linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadl
 debian_required_packages="snapd"
 snap_required_packages="helix"
 
-function lsp_install () {
+function add_hashicorp_repo() {
+ if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
+   echo "Hashicorp repo already added"
+   return
+ fi
+ wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+ sudo apt update
+}
+
+function lsp_install() {
   sudo npm install -g n
   sudo n stable
+  add_hashicorp_repo
+
   sudo npm i -g "awk-language-server@>=0.5.2"
   sudo npm i -g bash-language-server
   sudo npm i -g vscode-langservers-extracted
@@ -26,6 +38,9 @@ function lsp_install () {
   sudo npm i -g sql-language-server
   if is_darwin; then
     brew install hashicorp/tap/terraform-ls
+  fi
+  if is_linux; then
+    sudo apt install terraform-ls
   fi
   cargo install taplo-cli --locked --features lsp
   sudo npm i -g typescript typescript-language-server
