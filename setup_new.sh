@@ -47,6 +47,20 @@ docker_debian_linux_install() {
   sudo apt-get update
 }
 
+docker_ubuntu_linux_install() {
+  sudo apt-get update
+  sudo apt-get install ca-certificates curl
+  sudo install -m 0755 -d /etc/apt/keyrings
+  sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+  sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+  # Add the repository to Apt sources:
+  echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+    sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+  sudo apt-get update
+}
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
@@ -196,9 +210,12 @@ if uname -o |grep -i darwin; then
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 fi
 
-# install docker
+# install docker or equivalent
 if uname -n |grep -i debian; then
   docker_debian_linux_install
+fi
+if uname -n |grep -i ubuntu; then
+  docker_ubuntu_linux_install
 fi
 if uname -n |grep -i darwin; then
   brew install orbstack
