@@ -110,12 +110,12 @@ function is_darwin() {
 }
 
 function is_debian() {
-  uname -n |grep -i debian > /dev/null 2>&1
+  uname -a |grep -i debian > /dev/null 2>&1
   return $?
 }
 
 function is_ubuntu() {
-  uname -n |grep -i ubuntu > /dev/null 2>&1
+  uname -a |grep -i ubuntu > /dev/null 2>&1
   return $?
 }
 
