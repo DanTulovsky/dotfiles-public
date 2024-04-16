@@ -3,9 +3,9 @@
 set -e
 
 shopt -s expand_aliases
-required_commands="git zsh fzf keychain tmux"
+required_commands="git zsh fzf keychain tmux vim"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential"
+linux_required_packages="build-essential build-dep python3"
 
 # all OS
 for com in ${required_commands}; do
