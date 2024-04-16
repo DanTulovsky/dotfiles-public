@@ -276,7 +276,7 @@ if is_linux; then
 fi
 
 # install krew
-krew_install_plugins
+krew_install_plugins || true
 
 # install fonts
 if is_darwin; then
