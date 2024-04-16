@@ -24,7 +24,7 @@ function lsp_install () {
   go install golang.org/x/tools/cmd/goimports@latest
   sudo npm i -g vscode-langservers-extracted
   sudo npm i -g sql-language-server
-  if uname -a |grep -i darwin; then
+  if is_darwin; then
     brew install hashicorp/tap/terraform-ls
   fi
   cargo install taplo-cli --locked --features lsp
