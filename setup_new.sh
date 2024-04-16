@@ -11,21 +11,23 @@ debian_required_packages="snapd"
 snap_required_packages="helix"
 
 lsp_install () {
-        sudo npm i -g "awk-language-server@>=0.5.2"
-        sudo npm i -g bash-language-server
-        sudo npm i -g vscode-langservers-extracted
-        sudo npm i -g dockerfile-language-server-nodejs
-        sudo npm i -g dot-language-server
-        sudo npm i -g graphql-language-service-cli
-        go install golang.org/x/tools/gopls@latest
-        go install github.com/go-delve/delve/cmd/dlv@latest
-        go install golang.org/x/tools/cmd/goimports@latest
-        sudo npm i -g vscode-langservers-extracted
-        sudo npm i -g sql-language-server
-        brew install hashicorp/tap/terraform-ls
-        cargo install taplo-cli --locked --features lsp
-        sudo npm i -g typescript typescript-language-server
-        sudo npm i -g yaml-language-server@next
+  sudo npm install -g n
+  sudo n stable
+  sudo npm i -g "awk-language-server@>=0.5.2"
+  sudo npm i -g bash-language-server
+  sudo npm i -g vscode-langservers-extracted
+  sudo npm i -g dockerfile-language-server-nodejs
+  sudo npm i -g dot-language-server
+  sudo npm i -g graphql-language-service-cli
+  go install golang.org/x/tools/gopls@latest
+  go install github.com/go-delve/delve/cmd/dlv@latest
+  go install golang.org/x/tools/cmd/goimports@latest
+  sudo npm i -g vscode-langservers-extracted
+  sudo npm i -g sql-language-server
+  brew install hashicorp/tap/terraform-ls
+  cargo install taplo-cli --locked --features lsp
+  sudo npm i -g typescript typescript-language-server
+  sudo npm i -g yaml-language-server@next
 }
 
 for com in ${required_commands}; do
@@ -168,6 +170,9 @@ if [[ -e ~/.homebrew_apps ]]; then
     ~/.homebrew_apps
   fi
 fi
+
+# install language servers
+lsp_install
 
 # install fonts
 if uname |grep -i darwin; then
