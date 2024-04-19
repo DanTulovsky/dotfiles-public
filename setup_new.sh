@@ -282,12 +282,16 @@ lsp_install
 
 # install homebrew
 if is_darwin; then
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+  if command -v brew; then
+    echo "brew already installed"
+  else
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-  # install homebrewapp
-  if [[ -e ~/.homebrew_apps ]]; then
-    if is_darwin; then
-      ~/.homebrew_apps
+    # install homebrewapp
+    if [[ -e ~/.homebrew_apps ]]; then
+      if is_darwin; then
+        ~/.homebrew_apps
+      fi
     fi
   fi
 fi
