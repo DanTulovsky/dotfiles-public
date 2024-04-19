@@ -301,7 +301,9 @@ if is_linux; then
   docker_linux_install
 fi
 if is_darwin; then
-  brew install orbstack
+  if ! command -v orb; then
+    brew install orbstack
+  fi
 fi
 
 # install gcloud
