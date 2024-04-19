@@ -106,16 +106,11 @@ krew_install_plugins() {
   ~/.krew_plugins
 }
 
-kraft_linux_install() {
+kraft_install() {
   if command -v kraft; then
     return
   fi
-  sudo apt-get update
-  sudo apt-get install ca-certificates curl gnupg lsb-release
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/unikraft.gpg] https://apt.pkg.kraftkit.sh \
-    $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/unikraft.list > /dev/null
-  sudo apt-get update
-  sudo apt-get install kraftkit
+  curl --proto '=https' --tlsv1.2 -sSf https://get.kraftkit.sh | sh
 }
 
 function is_linux() {
@@ -314,12 +309,7 @@ fi
 krew_install_plugins || true
 
 # install kraft
-if is_linux; then
-  kraft_linux_install
-fi
-if is_darwin; then
-  brew install unikraft/cli/kraftkit
-fi
+kraft_linux_install
 
 # install fonts
 if is_darwin; then
