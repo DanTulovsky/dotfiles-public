@@ -24,7 +24,6 @@ function add_hashicorp_repo() {
 function lsp_install() {
   sudo npm install -g n
   sudo n stable
-  add_hashicorp_repo
 
   sudo npm i -g "awk-language-server@>=0.5.2"
   sudo npm i -g bash-language-server
@@ -41,6 +40,7 @@ function lsp_install() {
     brew install hashicorp/tap/terraform-ls
   fi
   if is_linux; then
+    add_hashicorp_repo
     sudo apt install terraform-ls
   fi
   cargo install taplo-cli --locked --features lsp
