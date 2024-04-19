@@ -190,6 +190,7 @@ if is_linux; then
   sudo sed -i -e s/^#deb-src/deb-src/g /etc/apt/sources.list
   sudo apt-get update
   sudo apt-get -y build-dep python3
+
   for pkg in ${linux_required_packages}; do
     if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
       echo "${pkg} available"
@@ -214,6 +215,10 @@ if is_linux; then
         exit 1
       fi
     done
+  fi
+
+  if is_ubuntu; then
+    sudo apt install -y helix
   fi
 fi
 
@@ -241,6 +246,9 @@ if [ ! -f "${git_identity_file}" ]; then
   exit 1
 fi
 
+###############################################################################################
+# CONFIG
+###############################################################################################
 echo "Removing old config..."
 rm -rf "$HOME"/.cfg
 alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
@@ -262,6 +270,9 @@ config config --local status.showUntrackedFiles no
 # install zprezto
 rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
 git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
+###############################################################################################
+# END CONFIG
+###############################################################################################
 
 echo "Installing pyenv..."
 if is_darwin; then
