@@ -315,7 +315,7 @@ fi
 krew_install_plugins || true
 
 # install kraft
-kraft_linux_install
+kraft_install
 
 # install fonts
 if is_darwin; then
