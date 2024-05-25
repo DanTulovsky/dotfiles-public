@@ -112,12 +112,12 @@ kraft_install() {
 }
 
 function is_linux() {
-  uname -o |grep -i linux > /dev/null 2>&1
+  uname -a |grep -i linux > /dev/null 2>&1
   return $?
 }
 
 function is_darwin() {
-  uname -o |grep -i darwin > /dev/null 2>&1
+  uname -a |grep -i darwin > /dev/null 2>&1
   return $?
 }
 
