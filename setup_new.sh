@@ -138,7 +138,7 @@ function is_arm_linx() {
 
 # initial mac setup
 if is_darwin; then
-  if command -v brew > /dev/null 2>&1; then
+  if ! command -v brew > /dev/null 2>&1; then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
     brew install curl wget git zsh fzf keychain tmux vim
   fi
