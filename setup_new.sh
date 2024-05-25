@@ -328,7 +328,6 @@ kraft_install
 
 # install fonts
 if is_darwin; then
-  brew tap homebrew/cask-fonts
   brew install font-meslo-lg-nerd-font
 else
   echo ""
