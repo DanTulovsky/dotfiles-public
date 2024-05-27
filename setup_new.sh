@@ -167,7 +167,8 @@ for pkg in ${required_packages}; do
   if is_linux; then
     if [[ ${pkg} = "golang" ]]; then
       if uname -a |grep -i microsoft; then
-        sudo apt install -y golang-1.21
+        sudo apt install snapd
+        sudo snap install --classic --channel=1.22/stable go
         continue
       fi
     fi
