@@ -131,6 +131,11 @@ function is_ubuntu() {
   return $?
 }
 
+function is_jammy() {
+  uname -a |grep -i jammy > /dev/null 2>&1
+  return $?
+}
+
 function is_arm_linx() {
   uname -m |grep -i arm > /dev/null 2>&1
   return $?
@@ -166,7 +171,7 @@ done
 for pkg in ${required_packages}; do
   if is_linux; then
     if [[ ${pkg} = "golang" ]]; then
-      if uname -a |grep -i microsoft; then
+      if is_jammy; then
         sudo apt install snapd
         sudo snap install --classic --channel=1.22/stable go
         continue
