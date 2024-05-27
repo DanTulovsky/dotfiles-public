@@ -168,6 +168,7 @@ for pkg in ${required_packages}; do
     if pkg == "golang"; then
       if uname -a |grep -i microsoft; then
         sudo apt install -y golang-1.21-go
+        continue
       fi
     fi
     if ! sudo apt install -y "${pkg}"; then
