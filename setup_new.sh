@@ -250,6 +250,7 @@ fi
 echo "Installing cargo..."
 if ! command -v cargo; then
   curl https://sh.rustup.rs -sSf | sh
+  source ~/.zshrc
 fi
 
 # setup ssh key
