@@ -245,6 +245,7 @@ fi
 
 echo "Installing cargo..."
 if ! command -v cargo; then
+  touch ~/.zshrc
   curl https://sh.rustup.rs -sSf | sh
   source ~/.zshrc
 fi
