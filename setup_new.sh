@@ -8,7 +8,7 @@ required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger bzr apt-transport-https ca-certificates gnupg curl bind9-utils"
 debian_required_packages="snapd"
-snap_required_packages="helix"
+snap_required_packages=""
 
 function add_hashicorp_repo() {
  if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
@@ -233,10 +233,6 @@ if is_linux; then
         exit 1
       fi
     done
-  fi
-
-  if is_ubuntu; then
-    sudo apt install -y helix
   fi
 fi
 
