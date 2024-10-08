@@ -104,13 +104,6 @@ krew_install_plugins() {
   ~/.krew_plugins
 }
 
-kraft_install() {
-  if command -v kraft; then
-    return
-  fi
-  curl --proto '=https' --tlsv1.2 -sSf https://get.kraftkit.sh | sh
-}
-
 function is_linux() {
   uname -a |grep -i linux > /dev/null 2>&1
   return $?
@@ -366,9 +359,6 @@ fi
 
 # install krew; ignore failures
 krew_install_plugins || true
-
-# install kraft
-kraft_install
 
 # install fonts
 if is_darwin; then
