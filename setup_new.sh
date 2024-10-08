@@ -221,6 +221,18 @@ if is_linux; then
   done
 
   sudo locale-gen en_US.UTF-8
+  sudo mkdir -p /etc/docker
+  sudo cat << EOF >> /etc/docker/daemon.json
+{
+  "log-driver": "local",
+  "log-opts": {
+    "max-size": "10m"
+  },
+  "features": {
+    "containerd-snapshotter": true
+  }
+}
+EOF
 
   if is_ubuntu; then
     if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
