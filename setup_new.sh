@@ -220,6 +220,18 @@ if is_linux; then
     fi
   done
 
+  if is_ubuntu; then
+    if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
+    sudo cat << EOF >> /etc/apt/sources.list.d/ubuntu.sources
+Types: deb-src
+URIs: http://us.archive.ubuntu.com/ubuntu/
+Suites: noble noble-updates noble-backports noble-proposed
+Components: main restricted universe multiverse
+Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
+EOF
+    fi
+  fi
+  
   if is_debian; then
     for pkg in ${debian_required_packages}; do
       if ! sudo apt install -y "${pkg}"; then
