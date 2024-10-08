@@ -6,7 +6,7 @@ shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
 required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger bzr apt-transport-https ca-certificates gnupg curl bind9-utils"
+linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl bind9-utils"
 debian_required_packages="snapd"
 snap_required_packages=""
 
@@ -219,6 +219,8 @@ if is_linux; then
       fi
     fi
   done
+
+  sudo locale-gen en_US.UTF-8
 
   if is_ubuntu; then
     if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
