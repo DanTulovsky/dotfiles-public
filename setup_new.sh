@@ -354,3 +354,5 @@ if is_darwin; then
   defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false   # For VS Codium Exploration users
   defaults delete -g ApplePressAndHoldEnabled   
  fi
+
+touch $HOME/.tmux.conf.local
