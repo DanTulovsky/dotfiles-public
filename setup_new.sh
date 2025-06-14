@@ -199,6 +199,7 @@ done
 # Linux required packages
 if is_linux; then
   sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+  sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
   sudo apt-get update
   sudo apt-get -y build-dep python3
 
@@ -226,18 +227,6 @@ if is_linux; then
   }
 }
 EOF
-
-  if is_ubuntu; then
-    if ! grep -q "deb-src" /etc/apt/sources.list.d/ubuntu.sources; then
-    sudo cat << EOF >> /etc/apt/sources.list.d/ubuntu.sources
-Types: deb-src
-URIs: http://us.archive.ubuntu.com/ubuntu/
-Suites: noble noble-updates noble-backports noble-proposed
-Components: main restricted universe multiverse
-Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
-EOF
-    fi
-  fi
   
   if is_debian; then
     for pkg in ${debian_required_packages}; do
