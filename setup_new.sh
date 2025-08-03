@@ -199,7 +199,7 @@ done
 # Linux required packages
 if is_linux; then
   sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
-  sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+  sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
   sudo apt-get update
   sudo apt-get -y build-dep python3
 
