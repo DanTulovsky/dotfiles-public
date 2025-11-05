@@ -4,7 +4,7 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git fzf keychain tmux vim fish"
-required_packages="htop btop npm golang rclone"
+required_packages="htop btop npm golang rclone duf"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
 debian_required_packages="snapd"
@@ -257,6 +257,13 @@ if ! command -v cargo; then
   # rustup automatically detects fish and adds to ~/.config/fish/config.fish
   # Add cargo to PATH for current session
   export PATH="$HOME/.cargo/bin:$PATH"
+fi
+
+echo "Installing dust..."
+if ! command -v dust >/dev/null 2>&1; then
+  cargo install du-dust
+else
+  echo "dust already installed"
 fi
 
 # setup ssh key
