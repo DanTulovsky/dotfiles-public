@@ -6,7 +6,7 @@ shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
 required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv starship bind9-utils"
+linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
 debian_required_packages="snapd"
 snap_required_packages=""
 
@@ -294,6 +294,17 @@ else
     echo "pyenv already installed"
   else
     curl https://pyenv.run |bash
+  fi
+fi
+
+echo "Installing starship..."
+if is_darwin; then
+  brew install starship
+else
+  if command -v starship >/dev/null 2>&1; then
+    echo "starship already installed"
+  else
+    curl -sS https://starship.rs/install.sh | sh
   fi
 fi
 
