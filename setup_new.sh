@@ -241,7 +241,8 @@ if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
     elif is_darwin; then
       sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
     fi
-    echo "Default shell changed to fish. Shell will be active after restart."
+    echo "Default shell changed to fish. Please logout and log back in, then run this script again."
+    exit 0
   else
     echo "Error: fish is not installed"
     exit 1
