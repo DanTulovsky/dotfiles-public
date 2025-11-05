@@ -3,7 +3,7 @@
 set -e
 
 shopt -s expand_aliases
-required_commands="git zsh fzf keychain tmux vim"
+required_commands="git fzf keychain tmux vim fish"
 required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
@@ -138,7 +138,7 @@ function is_arm_linx() {
 if is_darwin; then
   if ! command -v brew > /dev/null 2>&1; then
     /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    brew install curl wget git zsh fzf keychain tmux vim fish direnv
+    brew install curl wget git fzf keychain tmux vim fish direnv
   fi
 fi
 
@@ -232,18 +232,30 @@ if is_linux; then
   fi
 fi
 
-if ! echo "${SHELL}" |grep zsh >/dev/null 2>&1; then
-  echo "Setting default shell to zsh..."
-  sudo -u "$USER" chsh -s "$(which zsh)"
-  echo "Please restart shell to switch to zsh and run this again..."
-  exit 1
+# set fish as default shell (before cargo so rustup detects fish)
+if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
+  echo "Setting default shell to fish..."
+  if command -v fish >/dev/null 2>&1; then
+    if is_linux; then
+      sudo -u "$USER" chsh -s "$(which fish)"
+    elif is_darwin; then
+      sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
+    fi
+    echo "Default shell changed to fish. Shell will be active after restart."
+  else
+    echo "Error: fish is not installed"
+    exit 1
+  fi
+else
+  echo "fish is already the default shell"
 fi
 
 echo "Installing cargo..."
 if ! command -v cargo; then
-  touch ~/.zshrc
   curl https://sh.rustup.rs -sSf | sh
-  source ~/.zshrc
+  # rustup automatically detects fish and adds to ~/.config/fish/config.fish
+  # Add cargo to PATH for current session
+  export PATH="$HOME/.cargo/bin:$PATH"
 fi
 
 # setup ssh key
@@ -275,13 +287,9 @@ keychain --nogui ~/.ssh/identity.git
 source ~/.keychain/"$(hostname)"-sh
 
 echo "Cloning dotfiles..."
-git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "${ZDOTDIR:-$HOME}"/.cfg
+git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
 config reset --hard HEAD
 config config --local status.showUntrackedFiles no
-
-# install zprezto
-rm -rf "${ZDOTDIR:-$HOME}"/.zprezto
-git clone --recursive https://github.com/sorin-ionescu/prezto.git "${ZDOTDIR:-$HOME}/.zprezto"
 ###############################################################################################
 # END CONFIG
 ###############################################################################################
