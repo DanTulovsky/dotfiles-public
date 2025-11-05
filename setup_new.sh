@@ -1,4 +1,4 @@
-#! /bin/bash 
+#! /bin/bash
 #
 set -e
 
@@ -6,7 +6,7 @@ shopt -s expand_aliases
 required_commands="git zsh fzf keychain tmux vim"
 required_packages="htop btop npm golang rclone"
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl pyenv direnv starship bind9-utils"
+linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv starship bind9-utils"
 debian_required_packages="snapd"
 snap_required_packages=""
 
@@ -215,7 +215,7 @@ if is_linux; then
   done
 
   sudo locale-gen en_US.UTF-8
-  
+
   if is_debian; then
     for pkg in ${debian_required_packages}; do
       if ! sudo apt install -y "${pkg}"; then
@@ -352,7 +352,7 @@ if is_darwin; then
   defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false      # For VS Code Insider
   defaults write com.vscodium ApplePressAndHoldEnabled -bool false                      # For VS Codium
   defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false   # For VS Codium Exploration users
-  defaults delete -g ApplePressAndHoldEnabled   
+  defaults delete -g ApplePressAndHoldEnabled
  fi
 
 touch $HOME/.tmux.conf.local
