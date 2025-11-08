@@ -4,7 +4,7 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git fzf keychain tmux vim fish"
-required_packages="htop btop npm golang rclone duf"
+required_packages="htop btop npm golang rclone duf lsd ripgrep"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
 debian_required_packages="snapd"
