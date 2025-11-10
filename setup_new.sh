@@ -4,7 +4,7 @@ set -e
 
 shopt -s expand_aliases
 required_commands="git fzf keychain tmux vim fish"
-required_packages="htop btop npm golang rclone duf"
+required_packages="htop btop npm golang rclone duf ripgrep"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
 debian_required_packages="snapd"
@@ -134,6 +134,96 @@ function is_arm_linx() {
   return $?
 }
 
+load_os_release() {
+  if [[ -n ${OS_RELEASE_LOADED:-} ]]; then
+    return
+  fi
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    OS_RELEASE_LOADED=1
+  else
+    OS_RELEASE_LOADED=0
+  fi
+}
+
+get_os_release_major_version() {
+  load_os_release
+  local version="${VERSION_ID:-}"
+  if [[ ${version} =~ ^([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    printf '0\n'
+  fi
+}
+
+get_os_release_minor_version() {
+  load_os_release
+  local version="${VERSION_ID:-}"
+  if [[ ${version} =~ ^[0-9]+\.([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    printf '0\n'
+  fi
+}
+
+get_os_release_codename() {
+  load_os_release
+  printf '%s\n' "${VERSION_CODENAME:-}"
+}
+
+install_lazygit() {
+  if command -v lazygit >/dev/null 2>&1; then
+    echo "lazygit already installed"
+    return
+  fi
+
+  if is_darwin; then
+    brew install lazygit
+    return
+  fi
+
+  if ! is_linux; then
+    echo "Skipping lazygit install: unsupported OS"
+    return
+  fi
+
+  if is_debian; then
+    local major
+    local codename
+    major="$(get_os_release_major_version)"
+    codename="$(get_os_release_codename)"
+    if [[ ${codename} == "sid" ]]; then
+      sudo apt install -y lazygit
+      return
+    fi
+    if [[ -n ${major} ]] && (( major >= 13 )); then
+      sudo apt install -y lazygit
+      return
+    fi
+  elif is_ubuntu; then
+    local major
+    local minor
+    major="$(get_os_release_major_version)"
+    minor="$(get_os_release_minor_version)"
+    if [[ -n ${major} && -n ${minor} ]] && { (( major > 25 )) || (( major == 25 && minor >= 10 )); }; then
+      sudo apt install -y lazygit
+      return
+    fi
+  fi
+
+  tmpdir="$(mktemp -d)"
+  (
+    set -e
+    cd "${tmpdir}"
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*')
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
+    tar xf lazygit.tar.gz lazygit
+    sudo install lazygit -D -t /usr/local/bin/
+  )
+  rm -rf "${tmpdir}"
+}
+
 # initial mac setup
 if is_darwin; then
   if ! command -v brew > /dev/null 2>&1; then
@@ -231,6 +321,8 @@ if is_linux; then
     done
   fi
 fi
+
+install_lazygit
 
 # set fish as default shell (before cargo so rustup detects fish)
 if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
