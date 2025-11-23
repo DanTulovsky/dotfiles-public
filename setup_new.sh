@@ -224,6 +224,29 @@ install_lazygit() {
   rm -rf "${tmpdir}"
 }
 
+install_lazyjournal() {
+  if command -v lazyjournal >/dev/null 2>&1; then
+    echo "lazyjournal already installed"
+    return
+  fi
+
+  if is_darwin; then
+    brew install lazyjournal
+    return
+  fi
+
+  if is_debian || is_ubuntu; then
+    arch=$(test "$(uname -m)" = "aarch64" && echo "arm64" || echo "amd64")
+    release_version=$(curl -L -sS -H 'Accept: application/json' https://github.com/Lifailon/lazyjournal/releases/latest | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
+    curl -L -sS "https://github.com/Lifailon/lazyjournal/releases/download/${release_version}/lazyjournal-${release_version}-${arch}.deb" -o /tmp/lazyjournal.deb
+    sudo apt install /tmp/lazyjournal.deb
+    return
+  fi
+
+  # For other systems, use the install script
+  curl -sS https://raw.githubusercontent.com/Lifailon/lazyjournal/main/install.sh | bash
+}
+
 # initial mac setup
 if is_darwin; then
   if ! command -v brew > /dev/null 2>&1; then
@@ -323,6 +346,8 @@ if is_linux; then
 fi
 
 install_lazygit
+
+install_lazyjournal
 
 # set fish as default shell (before cargo so rustup detects fish)
 if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
