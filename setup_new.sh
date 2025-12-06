@@ -455,19 +455,33 @@ pyenv install --skip-existing 3.12
 lsp_install
 
 # install homebrew
-if is_darwin; then
-  if command -v brew; then
-    echo "brew already installed"
-  else
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+if command -v brew; then
+  echo "brew already installed"
+else
+  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
-    # install homebrewapp
-    if [[ -e ~/.homebrew_apps ]]; then
-      if is_darwin; then
-        ~/.homebrew_apps
-      fi
+  # install homebrewapp
+  if [[ -e ~/.homebrew_apps ]]; then
+    if is_darwin; then
+      ~/.homebrew_apps
     fi
   fi
+fi
+
+# install cargo-binstall
+if ! command -v cargo-binstall >/dev/null 2>&1; then
+  echo "Installing cargo-binstall..."
+  brew install cargo-binstall
+else
+  echo "cargo-binstall already installed"
+fi
+
+# install zellij
+if ! command -v zellij >/dev/null 2>&1; then
+  echo "Installing zellij..."
+  cargo binstall -y zellij
+else
+  echo "zellij already installed"
 fi
 
 # install docker or equivalent
