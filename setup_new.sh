@@ -476,6 +476,14 @@ else
   echo "cargo-binstall already installed"
 fi
 
+# install sk
+if ! command -v sk >/dev/null 2>&1; then
+  echo "Installing sk..."
+  brew install sk
+else
+  echo "sk already installed"
+fi
+
 # install zellij
 if ! command -v zellij >/dev/null 2>&1; then
   echo "Installing zellij..."
