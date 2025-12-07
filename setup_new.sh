@@ -3,7 +3,7 @@
 set -e
 
 shopt -s expand_aliases
-required_commands="git fzf keychain tmux vim fish"
+required_commands="git fzf keychain vim fish"
 required_packages="htop btop npm golang rclone duf lsd ripgrep"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
@@ -490,6 +490,14 @@ if ! command -v zellij >/dev/null 2>&1; then
   cargo binstall -y zellij
 else
   echo "zellij already installed"
+fi
+
+# install tmux
+if ! command -v tmux >/dev/null 2>&1; then
+  echo "Installing tmux..."
+  brew install tmux
+else
+  echo "tmux already installed"
 fi
 
 # install docker or equivalent
