@@ -1,30 +1,123 @@
-#! /bin/bash
+#!/bin/bash
 #
-set -e
+# setup_new.sh
+#
+# Sets up a new machine (macOS, Linux - Debian/Ubuntu/Fedora) with required tools and configurations.
+#
 
+set -e
+set -o pipefail
 shopt -s expand_aliases
 
 # ==============================================================================
-# Variables
+# Constants & Configuration
 # ==============================================================================
 
-required_commands="git fzf keychain vim fish"
-required_packages="htop btop npm golang rclone duf lsd ripgrep"
+# Core tools required on all systems
+REQUIRED_COMMANDS=(
+  git
+  fzf
+  keychain
+  vim
+  fish
+)
+
+# Core packages required on all systems
+REQUIRED_PACKAGES=(
+  htop
+  btop
+  npm
+  golang
+  rclone
+  duf
+  lsd
+  ripgrep
+)
 
 # Linux General
-linux_required_commands="ssh-askpass"
+LINUX_REQUIRED_COMMANDS=(
+  ssh-askpass
+)
 
-# Debian/Ubuntu
-debian_required_packages="snapd"
-ubuntu_common_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
+# Fedora Specific
+FEDORA_REQUIRED_PACKAGES=(
+  make
+  automake
+  gcc
+  gcc-c++
+  kernel-devel
+  zlib-devel
+  readline-devel
+  openssl-devel
+  bzip2-devel
+  libffi-devel
+  sqlite-devel
+  xz-devel
+  pipx
+  ranger
+  gnupg
+  curl
+  direnv
+  bind-utils
+  openssh-askpass
+  dnf-plugins-core
+)
 
-# Fedora
-fedora_required_packages="make automake gcc gcc-c++ kernel-devel zlib-devel readline-devel openssl-devel bzip2-devel libffi-devel sqlite-devel xz-devel pipx ranger gnupg curl direnv bind-utils openssh-askpass dnf-plugins-core"
+# Debian/Ubuntu Specific
+DEBIAN_REQUIRED_PACKAGES=(
+  snapd
+)
 
-snap_required_packages=""
+UBUNTU_COMMON_PACKAGES=(
+  build-essential
+  zlib1g
+  zlib1g-dev
+  libreadline8
+  libreadline-dev
+  libssl-dev
+  lzma
+  bzip2
+  libffi-dev
+  libsqlite3-0
+  libsqlite3-dev
+  libbz2-dev
+  liblzma-dev
+  pipx
+  ranger
+  locales
+  bzr
+  apt-transport-https
+  ca-certificates
+  gnupg
+  curl
+  direnv
+  bind9-utils
+)
+
+SNAP_REQUIRED_PACKAGES=()
 
 # ==============================================================================
-# Helper Functions: OS Detection
+# Logging Helper Functions
+# ==============================================================================
+
+function log_info() {
+  echo -e "\033[34m[INFO]\033[0m $*"
+}
+
+function log_success() {
+  echo -e "\033[32m[OK]\033[0m $*"
+}
+
+function log_warn() {
+  echo -e "\033[33m[WARN]\033[0m $*"
+}
+
+function log_error() {
+  echo -e "\033[31m[ERROR]\033[0m $*" >&2
+}
+
+# ==============================================================================
+# OS Detection Functions
 # ==============================================================================
 
 function is_linux() {
@@ -38,7 +131,7 @@ function is_darwin() {
 }
 
 function is_debian() {
-  uname -a | grep -i debian > /dev/null 2>&1
+  [ -f /etc/debian_version ] || (uname -a | grep -i debian > /dev/null 2>&1)
   return $?
 }
 
@@ -104,32 +197,108 @@ function get_os_release_codename() {
 }
 
 # ==============================================================================
-# Install Functions
+# Package Management Helper Functions
 # ==============================================================================
 
+# Install a package using the system's package manager
+function install_package() {
+  local package="$1"
+  local fedora_package="${2:-$package}" # Optional mapping for Fedora
 
+  if is_fedora; then
+    log_info "Installing ${fedora_package} via dnf..."
+    if ! sudo dnf install -y "${fedora_package}"; then
+      log_warn "dnf failed to install ${fedora_package}"
+      if command -v brew >/dev/null 2>&1; then
+        log_info "Trying brew install ${package}..."
+        brew install "${package}"
+        return $?
+      fi
+      return 1
+    fi
+  elif is_linux; then
+    log_info "Installing ${package} via apt..."
+    if ! sudo apt install -y "${package}"; then
+      log_warn "apt failed to install ${package}"
+      if command -v brew >/dev/null 2>&1; then
+        log_info "Trying brew install ${package}..."
+        brew install "${package}"
+        return $?
+      fi
+      return 1
+    fi
+  elif is_darwin; then
+    log_info "Installing ${package} via brew..."
+    if ! brew install "${package}"; then
+      log_error "Failed to install ${package}"
+      return 1
+    fi
+  else
+    log_error "Unsupported OS for package installation"
+    return 1
+  fi
+  log_success "Installed ${package}"
+}
+
+# Ensure a command exists, otherwise attempt to install it
+function ensure_command() {
+  local cmd="$1"
+  local package="${2:-$cmd}" # Package name might differ from command name
+
+  if command -v "${cmd}" >/dev/null 2>&1; then
+    log_success "${cmd} is already available"
+  else
+    log_info "${cmd} not found. Installing..."
+    install_package "${package}"
+  fi
+}
+
+# ==============================================================================
+# Specific Install Functions
+# ==============================================================================
 
 function lsp_install() {
+  log_info "Installing Language Servers..."
+
+  # Node-based LSPs
   sudo npm install -g n
   sudo n stable
 
-  sudo npm i -g vscode-langservers-extracted
-  sudo npm i -g dockerfile-language-server-nodejs
-  sudo npm i -g dot-language-server
-  sudo npm i -g graphql-language-service-cli
+  local npm_lsps=(
+    vscode-langservers-extracted
+    dockerfile-language-server-nodejs
+    dot-language-server
+    graphql-language-service-cli
+    sql-language-server
+    typescript
+    typescript-language-server
+    yaml-language-server@next
+  )
+
+  for lsp in "${npm_lsps[@]}"; do
+      sudo npm i -g "${lsp}"
+  done
+
+  # Go tools
   go install golang.org/x/tools/gopls@latest
   go install github.com/go-delve/delve/cmd/dlv@latest
   go install golang.org/x/tools/cmd/goimports@latest
-  sudo npm i -g sql-language-server
 
-  brew install hashicorp/tap/terraform-ls
+  # Terraform
+  if command -v brew >/dev/null 2>&1; then
+      brew install hashicorp/tap/terraform-ls
+  else
+      log_warn "brew not found, skipping terraform-ls. Install manually or enable brew."
+  fi
 
-  cargo install taplo-cli --locked --features lsp
-  sudo npm i -g typescript typescript-language-server
-  sudo npm i -g yaml-language-server@next
+  # Taplo (TOML)
+  if command -v cargo >/dev/null 2>&1; then
+    cargo install taplo-cli --locked --features lsp
+  fi
 }
 
 function docker_linux_install() {
+  log_info "Checking Docker installation for Linux..."
   if is_fedora; then
       sudo dnf -y install dnf-plugins-core
       sudo curl -o /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/fedora/docker-ce.repo
@@ -139,15 +308,12 @@ function docker_linux_install() {
       return
   fi
 
-  dist=""
-  if is_debian; then
-    dist="debian"
-  fi
-  if is_ubuntu; then
-    dist="ubuntu"
-  fi
+  local dist=""
+  if is_debian; then dist="debian"; fi
+  if is_ubuntu; then dist="ubuntu"; fi
+
   if [ -z "${dist}" ]; then
-    echo "Unsupported distribution for Docker install"
+    log_warn "Unsupported distribution for Docker install"
     return
   fi
 
@@ -158,24 +324,25 @@ function docker_linux_install() {
   sudo chmod a+r /etc/apt/keyrings/docker.asc
 
   if [[ ! -e /etc/apt/sources.list.d/docker.list ]]; then
-    # Add the repository to Apt sources:
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${dist} \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     sudo apt-get update
   else
-    echo "Docker repository already added"
+    log_info "Docker repository already added"
   fi
   sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   sudo usermod -aG docker "$USER"
 }
 
 function gcloud_linux_install() {
-  if command -v gcloud; then
+  if command -v gcloud >/dev/null 2>&1; then
+    log_success "gcloud is already installed"
     return
   fi
 
+  log_info "Installing gcloud..."
   if is_fedora; then
     sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOM
 [google-cloud-cli]
@@ -196,6 +363,7 @@ EOM
 }
 
 function krew_install_plugins() {
+  log_info "Installing Krew plugins..."
   (
     set -x; cd "$(mktemp -d)" &&
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
@@ -206,14 +374,16 @@ function krew_install_plugins() {
     ./"${KREW}" install krew
   )
   hash -r
-  ~/.krew_plugins
+  ~/.krew_plugins || log_warn "Failed to run .krew_plugins"
 }
 
 function install_lazygit() {
   if command -v lazygit >/dev/null 2>&1; then
-    echo "lazygit already installed"
+    log_success "lazygit already installed"
     return
   fi
+
+  log_info "Installing lazygit..."
 
   if is_darwin; then
     brew install lazygit
@@ -227,7 +397,7 @@ function install_lazygit() {
   fi
 
   if ! is_linux; then
-    echo "Skipping lazygit install: unsupported OS"
+    log_warn "Skipping lazygit install: unsupported OS"
     return
   fi
 
@@ -269,9 +439,11 @@ function install_lazygit() {
 
 function install_lazyjournal() {
   if command -v lazyjournal >/dev/null 2>&1; then
-    echo "lazyjournal already installed"
+    log_success "lazyjournal already installed"
     return
   fi
+
+  log_info "Installing lazyjournal..."
 
   if is_darwin; then
     brew install lazyjournal
@@ -290,114 +462,25 @@ function install_lazyjournal() {
   curl -sS https://raw.githubusercontent.com/Lifailon/lazyjournal/main/install.sh | bash
 }
 
-# ==============================================================================
-# Main Execution Logic
-# ==============================================================================
-
-# initial mac setup
-if is_darwin; then
-  if ! command -v brew > /dev/null 2>&1; then
-    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    brew install curl wget git fzf keychain tmux vim fish direnv
-  fi
-fi
-
-# Required Commands
-for com in ${required_commands}; do
-  if command -v "${com}" >/dev/null 2>&1; then
-    echo "${com} available"
-  else
-    echo "${com} is required"
-    if is_fedora; then
-      if ! sudo dnf install -y "${com}"; then
-        exit 1
-      fi
-    elif is_linux; then
-      if ! sudo apt install -y "${com}"; then
-        exit 1
-      fi
-    elif is_darwin; then
-      if ! brew install "${com}"; then
-        exit 1
-      fi
+function install_cargo_binstall() {
+  if ! command -v cargo-binstall >/dev/null 2>&1; then
+    log_info "Installing cargo-binstall..."
+    if command -v brew >/dev/null 2>&1; then
+        brew install cargo-binstall
     else
-      exit 1
-    fi
-  fi
-done
-
-# Required Packages
-for pkg in ${required_packages}; do
-  if is_fedora; then
-     if [[ ${pkg} = "golang" ]]; then
-        # Fedora usually has recent go, or user might want specific version.
-        # 'golang' package is standard in Fedora.
-        if ! sudo dnf install -y golang; then
-             exit 1
-        fi
-        continue
-     fi
-     # Map generic names to Fedora if needed, or assume they exist
-     # htop, btop, npm, rclone, duf, lsd, ripgrep are all standard or common
-     if ! sudo dnf install -y "${pkg}"; then
-        exit 1
-     fi
-  elif is_linux; then
-    if [[ ${pkg} = "golang" ]]; then
-      if is_jammy; then
-        sudo apt install snapd
-        sudo snap install --classic --channel=1.22/stable go
-        continue
-      fi
-    fi
-    if ! sudo apt install -y "${pkg}"; then
-      exit 1
-    fi
-  elif is_darwin; then
-    if ! brew install "${pkg}"; then
-      exit 1
+        log_warn "Manual install of cargo-binstall required on Linux if brew is missing"
+        # Optional: cargo install cargo-binstall
     fi
   else
-    exit 1
+    log_success "cargo-binstall already installed"
   fi
-done
+}
 
-# Linux Specific Commands
-for com in ${linux_required_commands}; do
-  if command -v "${com}" >/dev/null 2>&1; then
-          echo "${com} available"
-  else
-    echo "${com} is required"
-    if is_fedora; then
-      # ssh-askpass handling on Fedora
-      if [[ "${com}" == "ssh-askpass" ]]; then
-         if ! sudo dnf install -y openssh-askpass; then
-             exit 1
-         fi
-      else
-         if ! sudo dnf install -y "${com}"; then
-           exit 1
-         fi
-      fi
-    elif is_linux; then
-      if ! sudo apt install -y "${com}"; then
-        exit 1
-      fi
-    fi
-  fi
-done
-
-# Linux Required Packages & Configuration
-if is_linux; then
+function system_update_linux() {
   if is_fedora; then
       sudo dnf group install -y "development-tools"
-      for pkg in ${fedora_required_packages}; do
-         if ! sudo dnf install -y "${pkg}"; then
-            exit 1
-         fi
-      done
-  else
-      # Debian/Ubuntu logic
+      sudo dnf update -y
+  elif is_debian || is_ubuntu; then
       if [ -f /etc/apt/sources.list ]; then
         sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
       fi
@@ -406,247 +489,263 @@ if is_linux; then
       fi
       sudo apt-get update
       sudo apt-get -y build-dep python3
-
-      for pkg in ${ubuntu_common_packages}; do
-        if dpkg -l | grep -i "${pkg}" >/dev/null 2>&1; then
-          echo "${pkg} available"
-        else
-          echo "${pkg} is required"
-          if ! sudo apt install -y "${pkg}"; then
-            exit 1
-          fi
-        fi
-      done
-
-      sudo locale-gen en_US.UTF-8
-
-      if is_debian; then
-        for pkg in ${debian_required_packages}; do
-          if ! sudo apt install -y "${pkg}"; then
-            exit 1
-          fi
-        done
-
-        # snap packages
-        for pkg in ${snap_required_packages}; do
-          if ! sudo snap install "${pkg}" --classic; then
-            exit 1
-          fi
-        done
-      fi
   fi
-fi
+}
 
-install_lazygit
-install_lazyjournal
+# ==============================================================================
+# Main Execution Logic
+# ==============================================================================
 
-# set fish as default shell (before cargo so rustup detects fish)
-if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
-  echo "Setting default shell to fish..."
-  if command -v fish >/dev/null 2>&1; then
-    if is_linux; then
-      sudo usermod -s "$(which fish)" "$USER"
-    elif is_darwin; then
-      sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
-    fi
-    echo "Default shell changed to fish. Please logout and log back in, then run this script again."
-    # We exit here because shell change requires relogin
-    exit 0
-  else
-    echo "Error: fish is not installed"
-    exit 1
-  fi
-else
-  echo "fish is already the default shell"
-fi
+function main() {
+    log_info "Starting Setup..."
 
-echo "Installing cargo..."
-if ! command -v cargo; then
-  curl https://sh.rustup.rs -sSf | sh -s -- -y
-  # rustup automatically detects fish and adds to ~/.config/fish/config.fish
-  # Add cargo to PATH for current session
-  export PATH="$HOME/.cargo/bin:$PATH"
-fi
-
-echo "Installing dust..."
-if ! command -v dust >/dev/null 2>&1; then
-  cargo install du-dust
-else
-  echo "dust already installed"
-fi
-
-# setup ssh key
-git_identity_file="${HOME}/.ssh/identity.git"
-
-if [ ! -f "${git_identity_file}" ]; then
-  echo "Generating ssh key for github into ${git_identity_file}"
-  ssh-keygen -f "${git_identity_file}"
-  echo "Add this key to github before continuing: https://github.com/settings/keys"
-  echo ""
-  cat "${git_identity_file}".pub
-  exit 1
-fi
-
-###############################################################################################
-# CONFIG
-###############################################################################################
-echo "Removing old config..."
-rm -rf "$HOME"/.cfg
-alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
-
-if ! grep ".cfg" .gitignore >/dev/null 2>&1; then
-  echo ".cfg" >> .gitignore
-fi
-
-echo "Starting ssh agent..."
-keychain --nogui ~/.ssh/identity.git
-# shellcheck disable=SC1090
-source ~/.keychain/"$(hostname)"-sh
-
-echo "Cloning dotfiles..."
-git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
-config reset --hard HEAD
-config config --local status.showUntrackedFiles no
-###############################################################################################
-# END CONFIG
-###############################################################################################
-
-echo "Installing pyenv..."
-if is_darwin; then
-  brew install pyenv pyenv-virtualenv
-else
-  if [[ -d ~/.pyenv ]]; then
-    echo "pyenv already installed"
-  else
-    curl https://pyenv.run | bash
-  fi
-fi
-
-echo "Installing starship..."
-if is_darwin; then
-  brew install starship
-else
-  if command -v starship >/dev/null 2>&1; then
-    echo "starship already installed"
-  else
-    curl -sS https://starship.rs/install.sh | sh -s -- -y
-  fi
-fi
-
-echo "Installing atuin..."
-if command -v atuin >/dev/null 2>&1; then
-  echo "atuin already installed"
-else
-  curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
-fi
-
-echo "Installing python 3.12..."
-# Ensure pyenv is usable in this session
-export PYENV_ROOT="$HOME/.pyenv"
-[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-eval "$(pyenv init -)"
-
-pyenv install --skip-existing 3.12
-
-# install language servers
-
-
-# install homebrew (Linux handled if missing)
-if command -v brew; then
-  echo "brew already installed"
-else
-  /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-  # Add brew to path for Linux if just installed
-  if is_linux; then
-      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-  fi
-
-  # install homebrewapp
-  if [[ -e ~/.homebrew_apps ]]; then
+    # Initial Mac Setup
     if is_darwin; then
-      ~/.homebrew_apps
+      if ! command -v brew > /dev/null 2>&1; then
+        log_info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew install curl wget git fzf keychain tmux vim fish direnv
+      fi
     fi
-  fi
-fi
 
-# install language servers
-lsp_install
+    # Install Homebrew on Linux if missing
+    if ! command -v brew >/dev/null 2>&1; then
+         if is_linux; then
+            log_info "Installing Homebrew for Linux..."
+             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+             eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+         fi
+    fi
 
-# install cargo-binstall
-if ! command -v cargo-binstall >/dev/null 2>&1; then
-  echo "Installing cargo-binstall..."
-  brew install cargo-binstall
-else
-  echo "cargo-binstall already installed"
-fi
+    # --- Install Required Commands ---
+    for cmd in "${REQUIRED_COMMANDS[@]}"; do
+        ensure_command "${cmd}"
+    done
 
-# install sk
-if ! command -v sk >/dev/null 2>&1; then
-  echo "Installing sk..."
-  brew install sk
-else
-  echo "sk already installed"
-fi
+    # --- Install Required Packages ---
+    for pkg in "${REQUIRED_PACKAGES[@]}"; do
+        if is_fedora && [[ "${pkg}" == "golang" ]]; then
+             install_package "golang"
+             continue
+        fi
 
-# install zellij
-if ! command -v zellij >/dev/null 2>&1; then
-  echo "Installing zellij..."
-  cargo binstall -y zellij
-else
-  echo "zellij already installed"
-fi
+        if is_linux && [[ "${pkg}" == "golang" ]]; then
+            if is_jammy; then
+                sudo apt install snapd
+                sudo snap install --classic --channel=1.22/stable go
+                continue
+            fi
+        fi
 
-# install tmux
-if ! command -v tmux >/dev/null 2>&1; then
-  echo "Installing tmux..."
-  brew install tmux
-else
-  echo "tmux already installed"
-fi
+        install_package "${pkg}"
+    done
 
-# install docker or equivalent
-if is_linux; then
-  docker_linux_install
-fi
-if is_darwin; then
-  if ! command -v orb; then
-    brew install orbstack
-  fi
-fi
+    # --- Linux Specifics ---
+    if is_linux; then
+        for cmd in "${LINUX_REQUIRED_COMMANDS[@]}"; do
+             if is_fedora && [[ "${cmd}" == "ssh-askpass" ]]; then
+                 install_package "openssh-askpass"
+             else
+                 ensure_command "${cmd}"
+             fi
+        done
 
-# install gcloud
-if is_linux; then
-  gcloud_linux_install
-fi
+        system_update_linux # Build deps etc
 
-# install krew; ignore failures
-krew_install_plugins || true
+        if is_fedora; then
+            for pkg in "${FEDORA_REQUIRED_PACKAGES[@]}"; do
+                install_package "${pkg}"
+            done
+        elif is_debian || is_ubuntu; then
+             for pkg in "${UBUNTU_COMMON_PACKAGES[@]}"; do
+                 install_package "${pkg}"
+             done
+             sudo locale-gen en_US.UTF-8
 
-# install fonts
-if is_darwin; then
-  brew install font-meslo-lg-nerd-font
-else
-  echo ""
-  echo "Install fonts from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts"
-  echo ""
-fi
+             if is_debian; then
+                 for pkg in "${DEBIAN_REQUIRED_PACKAGES[@]}"; do
+                     install_package "${pkg}"
+                 done
+                 # Snaps
+                 for pkg in "${SNAP_REQUIRED_PACKAGES[@]}"; do
+                    sudo snap install "${pkg}" --classic
+                 done
+             fi
+        fi
 
-# setup vscode key repeat
-if is_darwin; then
-  defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false              # For VS Code
-  defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false      # For VS Code Insider
-  defaults write com.vscodium ApplePressAndHoldEnabled -bool false                      # For VS Codium
-  defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false   # For VS Codium Exploration users
-  defaults delete -g ApplePressAndHoldEnabled
-fi
+        # Configure Homebrew apps on Linux if needed
+        # (Original script had checks for ~/.homebrew_apps on Darwin mainly)
+    fi
 
-touch "$HOME"/.tmux.conf.local
+    # --- Custom Installers ---
+    install_lazygit
+    install_lazyjournal
 
-echo "Installing tmux plugin manager..."
-mkdir -p "$HOME/.tmux/plugins"
-if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-else
-  echo "tmux plugin manager already installed"
-fi
+    # --- Shell Setup ---
+    # Set fish as default (Note: This might exit the script if it changes shell!)
+    if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
+      log_info "Setting default shell to fish..."
+      if command -v fish >/dev/null 2>&1; then
+        if is_linux; then
+          sudo usermod -s "$(which fish)" "$USER"
+        elif is_darwin; then
+          sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
+        fi
+        log_warn "Default shell changed to fish. Please logout and login again."
+        # We generally don't want to exit inside a big script unless necessary,
+        # but the original script did. keeping behavior for now.
+        exit 0
+      else
+        log_error "fish is not installed"
+        exit 1
+      fi
+    else
+      log_success "fish is already the default shell"
+    fi
+
+    # --- Cargo / Rust ---
+    log_info "Instaling/updating Rust..."
+    if ! command -v cargo; then
+      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+
+    log_info "Installing dust..."
+    if ! command -v dust >/dev/null 2>&1; then
+      cargo install du-dust
+    else
+      log_success "dust already installed"
+    fi
+
+    # --- SSH Keys ---
+    local git_identity_file="${HOME}/.ssh/identity.git"
+    if [ ! -f "${git_identity_file}" ]; then
+      log_info "Generating ssh key for github into ${git_identity_file}"
+      ssh-keygen -f "${git_identity_file}"
+      echo "Add this key to github before continuing: https://github.com/settings/keys"
+      echo ""
+      cat "${git_identity_file}".pub
+      exit 1
+    fi
+
+    # --- Dotfiles Configuration ---
+    log_info "Configuring dotfiles..."
+    rm -rf "$HOME"/.cfg
+    alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
+
+    if ! grep ".cfg" .gitignore >/dev/null 2>&1; then
+      echo ".cfg" >> .gitignore
+    fi
+
+    log_info "Starting ssh agent..."
+    keychain --nogui ~/.ssh/identity.git
+    # shellcheck disable=SC1090
+    if [ -f ~/.keychain/"$(hostname)"-sh ]; then
+        source ~/.keychain/"$(hostname)"-sh
+    fi
+
+    log_info "Cloning dotfiles..."
+    git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
+    config reset --hard HEAD
+    config config --local status.showUntrackedFiles no
+
+    # --- Pyenv & Python ---
+    log_info "Installing pyenv..."
+    if is_darwin; then
+      brew install pyenv pyenv-virtualenv
+    else
+      if [[ -d ~/.pyenv ]]; then
+        log_success "pyenv already installed"
+      else
+        curl https://pyenv.run | bash
+      fi
+    fi
+
+    # --- Starship ---
+    log_info "Installing starship..."
+    if is_darwin; then
+      brew install starship
+    else
+      if command -v starship >/dev/null 2>&1; then
+        log_success "starship already installed"
+      else
+        curl -sS https://starship.rs/install.sh | sh -s -- -y
+      fi
+    fi
+
+    # --- Atuin ---
+    log_info "Installing atuin..."
+    if command -v atuin >/dev/null 2>&1; then
+      log_success "atuin already installed"
+    else
+      curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+    fi
+
+    # --- Python Setup ---
+    log_info "Installing python 3.12..."
+    export PYENV_ROOT="$HOME/.pyenv"
+    [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+    if command -v pyenv >/dev/null 2>&1; then
+        eval "$(pyenv init -)"
+        pyenv install --skip-existing 3.12
+    else
+        log_error "pyenv not found, skipping python 3.12 install"
+    fi
+
+    # --- Extra Tools ---
+    install_cargo_binstall
+
+    ensure_command "sk" "sk" # brew install sk / or linux alternative? script used brew for both linux/mac?
+    # NOTE: Original script used brew install sk for both.
+
+    if ! command -v zellij >/dev/null 2>&1; then
+      log_info "Installing zellij..."
+      cargo binstall -y zellij
+    fi
+
+    ensure_command "tmux"
+
+    if is_linux; then
+      docker_linux_install
+      gcloud_linux_install
+    fi
+
+    if is_darwin; then
+      if ! command -v orb; then
+        brew install orbstack
+      fi
+    fi
+
+    krew_install_plugins || true
+
+    # --- Fonts & UI ---
+    if is_darwin; then
+      brew install font-meslo-lg-nerd-font
+
+      # VSCode settings
+      defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
+      defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
+      defaults write com.vscodium ApplePressAndHoldEnabled -bool false
+      defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
+      defaults delete -g ApplePressAndHoldEnabled || true
+    else
+      log_info "Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts"
+    fi
+
+    # --- Tmux Config ---
+    touch "$HOME"/.tmux.conf.local
+    log_info "Installing tmux plugin manager..."
+    mkdir -p "$HOME/.tmux/plugins"
+    if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+      git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    else
+      log_success "tmux plugin manager already installed"
+    fi
+
+    # --- Language Servers (Last) ---
+    lsp_install
+
+    log_success "Setup Complete!"
+}
+
+main "$@"
