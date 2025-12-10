@@ -298,6 +298,9 @@ function lsp_install() {
 }
 
 function docker_linux_install() {
+  if ! is_linux; then
+    return
+  fi
   log_info "Checking Docker installation for Linux..."
   if is_fedora; then
       sudo dnf -y install dnf-plugins-core
@@ -337,6 +340,10 @@ function docker_linux_install() {
 }
 
 function gcloud_linux_install() {
+  if ! is_linux; then
+    return
+  fi
+
   if command -v gcloud >/dev/null 2>&1; then
     log_success "gcloud is already installed"
     return
@@ -489,6 +496,123 @@ function system_update_linux() {
       fi
       sudo apt-get update
       sudo apt-get -y build-dep python3
+  fi
+}
+
+function install_sk() {
+  if ! command -v sk >/dev/null 2>&1; then
+    log_info "Installing sk..."
+    if command -v brew >/dev/null 2>&1; then
+      brew install sk
+    else
+      log_warn "brew not found, cannot install sk"
+    fi
+  else
+    log_success "sk already installed"
+  fi
+}
+
+function install_tmux() {
+  if ! command -v tmux >/dev/null 2>&1; then
+    log_info "Installing tmux..."
+    if command -v brew >/dev/null 2>&1; then
+      brew install tmux
+    else
+      log_warn "brew not found. Fallback to system package implementation: install_package"
+      install_package "tmux"
+    fi
+  else
+    log_success "tmux already installed"
+  fi
+}
+
+function install_zellij() {
+  if ! command -v zellij >/dev/null 2>&1; then
+      log_info "Installing zellij..."
+      cargo binstall -y zellij
+  else
+      log_success "zellij already installed"
+  fi
+}
+
+function install_starship() {
+  log_info "Installing starship..."
+  if is_darwin; then
+    brew install starship
+  else
+    if command -v starship >/dev/null 2>&1; then
+      log_success "starship already installed"
+    else
+      curl -sS https://starship.rs/install.sh | sh -s -- -y
+    fi
+  fi
+}
+
+function install_atuin() {
+  log_info "Installing atuin..."
+  if command -v atuin >/dev/null 2>&1; then
+    log_success "atuin already installed"
+  else
+    curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+  fi
+}
+
+function install_pyenv() {
+  log_info "Installing pyenv..."
+  if is_darwin; then
+    brew install pyenv pyenv-virtualenv
+  else
+    if [[ -d ~/.pyenv ]]; then
+      log_success "pyenv already installed"
+    else
+      curl https://pyenv.run | bash
+    fi
+  fi
+}
+
+function install_python_version() {
+  log_info "Installing python 3.12..."
+  export PYENV_ROOT="$HOME/.pyenv"
+  [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+  if command -v pyenv >/dev/null 2>&1; then
+      eval "$(pyenv init -)"
+      pyenv install --skip-existing 3.12
+  else
+      log_error "pyenv not found, skipping python 3.12 install"
+  fi
+}
+
+function install_fonts_and_ui() {
+  if is_darwin; then
+    brew install font-meslo-lg-nerd-font
+
+    # VSCode settings
+    defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
+    defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
+    defaults write com.vscodium ApplePressAndHoldEnabled -bool false
+    defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
+    defaults delete -g ApplePressAndHoldEnabled || true
+  else
+    log_info "Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts"
+  fi
+}
+
+function install_tpm() {
+  touch "$HOME"/.tmux.conf.local
+  log_info "Installing tmux plugin manager..."
+  mkdir -p "$HOME/.tmux/plugins"
+  if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+  else
+    log_success "tmux plugin manager already installed"
+  fi
+}
+
+function install_orbstack() {
+  if is_darwin; then
+      if ! command -v orb; then
+        brew install orbstack
+      fi
   fi
 }
 
@@ -651,97 +775,29 @@ function main() {
     config config --local status.showUntrackedFiles no
 
     # --- Pyenv & Python ---
-    log_info "Installing pyenv..."
-    if is_darwin; then
-      brew install pyenv pyenv-virtualenv
-    else
-      if [[ -d ~/.pyenv ]]; then
-        log_success "pyenv already installed"
-      else
-        curl https://pyenv.run | bash
-      fi
-    fi
-
-    # --- Starship ---
-    log_info "Installing starship..."
-    if command -v brew >/dev/null 2>&1; then
-      if command -v starship >/dev/null 2>&1; then
-        log_success "starship already installed"
-      else
-        brew install starship
-      fi
-    else
-      log_warn "brew not found, skipping starship. Install manually or enable brew."
-    fi
-
-    # --- Atuin ---
-    log_info "Installing atuin..."
-    if command -v atuin >/dev/null 2>&1; then
-      log_success "atuin already installed"
-    else
-      curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
-    fi
-
-    # --- Python Setup ---
-    log_info "Installing python 3.12..."
-    export PYENV_ROOT="$HOME/.pyenv"
-    [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
-    if command -v pyenv >/dev/null 2>&1; then
-        eval "$(pyenv init -)"
-        pyenv install --skip-existing 3.12
-    else
-        log_error "pyenv not found, skipping python 3.12 install"
-    fi
+    install_pyenv
+    install_starship
+    install_atuin
+    install_python_version
 
     # --- Extra Tools ---
     install_cargo_binstall
+    install_sk
+    install_tmux
+    install_zellij
 
-    ensure_command "sk" "sk" # brew install sk / or linux alternative? script used brew for both linux/mac?
-    # NOTE: Original script used brew install sk for both.
+    docker_linux_install
+    gcloud_linux_install
 
-    if ! command -v zellij >/dev/null 2>&1; then
-      log_info "Installing zellij..."
-      cargo binstall -y zellij
-    fi
-
-    ensure_command "tmux"
-
-    if is_linux; then
-      docker_linux_install
-      gcloud_linux_install
-    fi
-
-    if is_darwin; then
-      if ! command -v orb; then
-        brew install orbstack
-      fi
-    fi
+    install_orbstack
 
     krew_install_plugins || true
 
     # --- Fonts & UI ---
-    if is_darwin; then
-      brew install font-meslo-lg-nerd-font
-
-      # VSCode settings
-      defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
-      defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
-      defaults write com.vscodium ApplePressAndHoldEnabled -bool false
-      defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
-      defaults delete -g ApplePressAndHoldEnabled || true
-    else
-      log_info "Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts"
-    fi
+    install_fonts_and_ui
 
     # --- Tmux Config ---
-    touch "$HOME"/.tmux.conf.local
-    log_info "Installing tmux plugin manager..."
-    mkdir -p "$HOME/.tmux/plugins"
-    if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-      git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
-    else
-      log_success "tmux plugin manager already installed"
-    fi
+    install_tpm
 
     # --- Language Servers (Last) ---
     lsp_install
