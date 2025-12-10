@@ -633,8 +633,8 @@ function main() {
     rm -rf "$HOME"/.cfg
     alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
-    if ! grep ".cfg" .gitignore >/dev/null 2>&1; then
-      echo ".cfg" >> .gitignore
+    if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
+      echo ".cfg" >> "$HOME/.gitignore"
     fi
 
     log_info "Starting ssh agent..."
