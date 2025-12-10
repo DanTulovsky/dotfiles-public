@@ -417,7 +417,7 @@ done
 # Linux Required Packages & Configuration
 if is_linux; then
   if is_fedora; then
-      sudo dnf groupinstall -y "Development Tools"
+      sudo dnf group install -y "development-tools"
       for pkg in ${fedora_required_packages}; do
          if ! sudo dnf install -y "${pkg}"; then
             exit 1
@@ -664,3 +664,11 @@ if is_darwin; then
 fi
 
 touch "$HOME"/.tmux.conf.local
+
+echo "Installing tmux plugin manager..."
+mkdir -p "$HOME/.tmux/plugins"
+if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
+  git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+else
+  echo "tmux plugin manager already installed"
+fi
