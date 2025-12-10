@@ -129,8 +129,6 @@ function lsp_install() {
   sudo npm install -g n
   sudo n stable
 
-  sudo npm i -g "awk-language-server@>=0.5.2"
-  sudo npm i -g bash-language-server
   sudo npm i -g vscode-langservers-extracted
   sudo npm i -g dockerfile-language-server-nodejs
   sudo npm i -g dot-language-server
