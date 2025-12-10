@@ -465,7 +465,6 @@ function install_package() {
   local fedora_package="${2:-$package}" # Optional mapping for Fedora
 
   if is_package_installed "${package}"; then
-     log_task_success
      log_success "${package} is already installed"
      return 0
   fi
