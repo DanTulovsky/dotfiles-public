@@ -471,7 +471,7 @@ if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
   echo "Setting default shell to fish..."
   if command -v fish >/dev/null 2>&1; then
     if is_linux; then
-      sudo -u "$USER" chsh -s "$(which fish)"
+      sudo usermod -s "$(which fish)" "$USER"
     elif is_darwin; then
       sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
     fi
