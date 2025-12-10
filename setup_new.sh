@@ -128,7 +128,7 @@ function setup_shell() {
         exit 1
       fi
     else
-      log_success "fish is already the default shell"
+      log_success
     fi
 }
 
@@ -489,14 +489,15 @@ function is_package_installed() {
 function install_package() {
   local package="$1"
   local fedora_package="${2:-$package}" # Optional mapping for Fedora
+  log_task_start "Installing ${package}"
 
   if is_package_installed "${package}"; then
-     log_success "${package} is already installed"
+     log_success
      return 0
   fi
 
   if is_fedora; then
-    log_task_start "Installing ${fedora_package} via dnf"
+    # log_task_start "Installing ${fedora_package} via dnf" - already started
     if ! execute sudo dnf install -y "${fedora_package}"; then
       log_task_fail
       log_warn "dnf failed to install ${fedora_package}"
@@ -514,7 +515,7 @@ function install_package() {
     fi
     log_success
   elif is_linux; then
-    log_task_start "Installing ${package} via apt"
+    # log_task_start "Installing ${package} via apt"
     if ! execute sudo apt install -y "${package}"; then
       log_task_fail
       log_warn "apt failed to install ${package}"
@@ -532,7 +533,7 @@ function install_package() {
     fi
     log_success
   elif is_darwin; then
-    log_task_start "Installing ${package} via brew"
+    # log_task_start "Installing ${package} via brew"
     if ! execute brew install "${package}"; then
       log_task_fail
       log_error "Failed to install ${package}"
@@ -551,10 +552,18 @@ function ensure_command() {
   local package="${2:-$cmd}" # Package name might differ from command name
 
   if command -v "${cmd}" >/dev/null 2>&1; then
-    log_success "${cmd} is already available"
+    # log_success "${cmd} is already available" - assume caller handles this or silent check?
+    # actually ensure_command loop in install_core_tools calls this.
+    # user wants concise.
+    # check if we should log at all.
+    # install_core_tools loop just calls ensure_command.
+    # let's modify ensure_command to be consistent.
+    log_task_start "Checking ${cmd}"
+    log_success
   else
-    log_info "${cmd} not found. Installing..."
+    log_task_start "Installing ${cmd}"
     install_package "${package}"
+    log_success
   fi
 }
 
@@ -625,7 +634,7 @@ function docker_linux_install() {
   fi
 
   if command -v docker >/dev/null 2>&1; then
-    log_success "Docker already installed"
+    log_success
     return
   fi
 
@@ -660,7 +669,7 @@ function gcloud_linux_install() {
   fi
 
   if command -v gcloud >/dev/null 2>&1; then
-    log_success "gcloud is already installed"
+    log_success
     return
   fi
 
@@ -714,7 +723,8 @@ function krew_install_plugins() {
 
 function install_lazygit() {
   if command -v lazygit >/dev/null 2>&1; then
-    log_success "lazygit already installed"
+    log_task_start "Checking lazygit"
+    log_success
     return
   fi
 
@@ -782,7 +792,8 @@ function install_lazygit() {
 
 function install_lazyjournal() {
   if command -v lazyjournal >/dev/null 2>&1; then
-    log_success "lazyjournal already installed"
+    log_task_start "Checking lazyjournal"
+    log_success
     return
   fi
 
@@ -806,8 +817,8 @@ function install_lazyjournal() {
 }
 
 function install_cargo_binstall() {
+  log_task_start "Installing cargo-binstall"
   if ! command -v cargo-binstall >/dev/null 2>&1; then
-    log_task_start "Installing cargo-binstall"
     if command -v brew >/dev/null 2>&1; then
         if execute brew install cargo-binstall; then
             log_success
@@ -819,7 +830,7 @@ function install_cargo_binstall() {
         # Optional: cargo install cargo-binstall
     fi
   else
-    log_success "cargo-binstall already installed"
+    log_success
   fi
 }
 
@@ -840,8 +851,8 @@ function system_update_linux() {
 }
 
 function install_sk() {
+  log_task_start "Installing sk"
   if ! command -v sk >/dev/null 2>&1; then
-    log_task_start "Installing sk"
     if command -v brew >/dev/null 2>&1; then
       if execute brew install sk; then
           log_success
@@ -853,13 +864,13 @@ function install_sk() {
       log_warn "brew not found, cannot install sk"
     fi
   else
-    log_success "sk already installed"
+    log_success
   fi
 }
 
 function install_tmux() {
+  log_task_start "Installing tmux"
   if ! command -v tmux >/dev/null 2>&1; then
-    log_task_start "Installing tmux"
     if command -v brew >/dev/null 2>&1; then
       if execute brew install tmux; then
           log_success
@@ -872,20 +883,20 @@ function install_tmux() {
       install_package "tmux"
     fi
   else
-    log_success "tmux already installed"
+    log_success
   fi
 }
 
 function install_zellij() {
+  log_task_start "Installing zellij"
   if ! command -v zellij >/dev/null 2>&1; then
-      log_task_start "Installing zellij"
       if execute cargo binstall -y zellij; then
         log_success
       else
         log_task_fail
       fi
   else
-      log_success "zellij already installed"
+      log_success
   fi
 }
 
@@ -899,7 +910,7 @@ function install_starship() {
     fi
   else
     if command -v starship >/dev/null 2>&1; then
-      log_success "starship already installed"
+      log_success
     else
       if curl -sS https://starship.rs/install.sh | sh -s -- -y >/dev/null 2>&1; then
         log_success
@@ -913,7 +924,7 @@ function install_starship() {
 function install_atuin() {
   log_task_start "Installing atuin"
   if command -v atuin >/dev/null 2>&1; then
-    log_success "atuin already installed"
+    log_success
   else
     if execute curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh; then
         log_success
@@ -933,7 +944,7 @@ function install_pyenv() {
     fi
   else
     if [[ -d ~/.pyenv ]]; then
-      log_success "pyenv already installed"
+      log_success
     else
       if execute curl https://pyenv.run | bash; then
         log_success
@@ -989,7 +1000,7 @@ function install_tpm() {
   if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
     execute git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
   else
-    log_success "tmux plugin manager already installed"
+    log_success
   fi
 }
 
