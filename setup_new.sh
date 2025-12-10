@@ -7,6 +7,18 @@
 
 set -e
 set -o pipefail
+
+VERBOSE=false
+
+# Parse arguments
+for arg in "$@"; do
+  case $arg in
+    --verbose)
+      VERBOSE=true
+      shift
+      ;;
+  esac
+done
 function install_homebrew() {
     # Initial Mac Setup
     if is_darwin; then
@@ -323,6 +335,12 @@ function log_task_fail() {
 # ==============================================================================
 
 function execute() {
+  local silent=false
+  if [[ "$1" == "-s" ]]; then
+    silent=true
+    shift
+  fi
+
   local temp_log
   temp_log=$(mktemp)
 
@@ -358,6 +376,13 @@ function execute() {
 
     # We need a newline because log_error expects to start on new line
     echo ""
+
+    if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
+      # Suppress error output
+      rm "$temp_log"
+      return $exit_code
+    fi
+
     log_error "Command failed: $*"
     cat "$temp_log" >&2
     rm "$temp_log"
@@ -674,12 +699,12 @@ function krew_install_plugins() {
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
     ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
     KREW="krew-${OS}_${ARCH}" &&
-    execute curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
-    execute tar zxf "${KREW}.tar.gz" &&
-    execute ./"${KREW}" install krew
+    execute -s curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
+    execute -s tar zxf "${KREW}.tar.gz" &&
+    execute -s ./"${KREW}" install krew
   ) && {
-      execute hash -r
-      execute ~/.krew_plugins
+      execute -s hash -r
+      execute -s ~/.krew_plugins
   }; then
     log_success
   else
