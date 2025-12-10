@@ -14,7 +14,7 @@ function install_homebrew() {
         log_task_start "Installing Homebrew"
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         if execute brew install curl wget git fzf keychain tmux vim fish direnv; then
-            log_task_success
+            log_success
         else
             log_task_fail
         fi
@@ -27,7 +27,7 @@ function install_homebrew() {
             log_task_start "Installing Homebrew for Linux"
              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-             log_task_success
+             log_success
          fi
     fi
 }
@@ -123,15 +123,15 @@ function setup_shell() {
 function install_rust() {
     # --- Cargo / Rust ---
     log_task_start "Instaling/updating Rust"
-    if ! command -v cargo; then
+    if ! command -v cargo >/dev/null 2>&1; then
       if curl https://sh.rustup.rs -sSf | sh -s -- -y >/dev/null 2>&1; then
           export PATH="$HOME/.cargo/bin:$PATH"
-          log_task_success
+          log_success
       else
           log_task_fail
       fi
     else
-        log_task_success
+        log_success
     fi
 }
 
@@ -139,12 +139,11 @@ function install_dust() {
     log_task_start "Installing dust"
     if ! command -v dust >/dev/null 2>&1; then
       if execute cargo install du-dust; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
     else
-      log_task_success
       log_success "dust already installed"
     fi
 }
@@ -170,6 +169,8 @@ function setup_dotfiles() {
     if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
       execute echo ".cfg" >> "$HOME/.gitignore"
     fi
+    # Close the "Configuring dotfiles..." incomplete line with success before starting new logs
+    log_success
 
     log_info "Starting ssh agent..."
     keychain --nogui ~/.ssh/identity.git
@@ -187,7 +188,7 @@ function setup_dotfiles() {
     if execute git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg; then
         execute config reset --hard HEAD
         execute config config --local status.showUntrackedFiles no
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
@@ -289,7 +290,11 @@ function log_info() {
 }
 
 function log_success() {
-  echo -e "\033[32m[OK]\033[0m $*"
+  if [ -z "$1" ]; then
+    echo -e "\033[32m[OK]\033[0m"
+  else
+    echo -e "\033[32m[OK]\033[0m $*"
+  fi
 }
 
 function log_warn() {
@@ -304,9 +309,7 @@ function log_task_start() {
   echo -ne "\033[34m[INFO]\033[0m $*... "
 }
 
-function log_task_success() {
-  echo -e "\033[32m[OK]\033[0m"
-}
+
 
 function log_task_fail() {
   echo -e "\033[31m[FAILED]\033[0m"
@@ -475,7 +478,7 @@ function install_package() {
       if command -v brew >/dev/null 2>&1; then
         log_task_start "Trying brew install ${package}"
         if execute brew install "${package}"; then
-            log_task_success
+            log_success
             return 0
         else
             log_task_fail
@@ -484,7 +487,7 @@ function install_package() {
       fi
       return 1
     fi
-    log_task_success
+    log_success
   elif is_linux; then
     log_task_start "Installing ${package} via apt"
     if ! execute sudo apt install -y "${package}"; then
@@ -493,7 +496,7 @@ function install_package() {
       if command -v brew >/dev/null 2>&1; then
         log_task_start "Trying brew install ${package}"
         if execute brew install "${package}"; then
-            log_task_success
+            log_success
             return 0
         else
             log_task_fail
@@ -502,7 +505,7 @@ function install_package() {
       fi
       return 1
     fi
-    log_task_success
+    log_success
   elif is_darwin; then
     log_task_start "Installing ${package} via brew"
     if ! execute brew install "${package}"; then
@@ -510,7 +513,7 @@ function install_package() {
       log_error "Failed to install ${package}"
       return 1
     fi
-    log_task_success
+    log_success
   else
     log_error "Unsupported OS for package installation"
     return 1
@@ -564,7 +567,7 @@ function lsp_install() {
   if command -v brew >/dev/null 2>&1; then
       log_task_start "Installing terraform-ls via brew"
       if execute brew install hashicorp/tap/terraform-ls; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
@@ -587,17 +590,16 @@ function docker_linux_install() {
       if execute sudo dnf -y install dnf-plugins-core \
         && execute sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
         && execute sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
-            log_task_success
+            log_success
       else
             log_task_fail
       fi
       log_task_start "Adding user to docker group"
-      execute sudo usermod -aG docker "$USER" && log_task_success || log_task_fail
+      execute sudo usermod -aG docker "$USER" && log_success || log_task_fail
       return
   fi
 
   if command -v docker >/dev/null 2>&1; then
-    log_task_success
     log_success "Docker already installed"
     return
   fi
@@ -620,7 +622,7 @@ function docker_linux_install() {
 
   log_task_start "Installing Docker packages"
   if execute sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
-    log_task_success
+    log_success
   else
     log_task_fail
   fi
@@ -649,7 +651,7 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOM
     if execute sudo dnf install -y google-cloud-cli kubectl; then
-      log_task_success
+      log_success
     else
       log_task_fail
     fi
@@ -659,7 +661,7 @@ EOM
   execute curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
   if execute sudo apt-get update && execute sudo apt-get install -y google-cloud-cli kubectl; then
-    log_task_success
+    log_success
   else
     log_task_fail
   fi
@@ -679,7 +681,7 @@ function krew_install_plugins() {
       execute hash -r
       execute ~/.krew_plugins
   }; then
-    log_task_success
+    log_success
   else
     log_warn "Krew install failed, but continuing. Check logs if needed."
   fi
@@ -695,7 +697,7 @@ function install_lazygit() {
 
   if is_darwin; then
     if execute brew install lazygit; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
@@ -705,7 +707,7 @@ function install_lazygit() {
   if is_fedora; then
     execute sudo dnf -y copr enable dejan/lazygit
     if execute sudo dnf install -y lazygit; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
@@ -783,7 +785,7 @@ function install_cargo_binstall() {
     log_task_start "Installing cargo-binstall"
     if command -v brew >/dev/null 2>&1; then
         if execute brew install cargo-binstall; then
-            log_task_success
+            log_success
         else
             log_task_fail
         fi
@@ -817,7 +819,7 @@ function install_sk() {
     log_task_start "Installing sk"
     if command -v brew >/dev/null 2>&1; then
       if execute brew install sk; then
-          log_task_success
+          log_success
       else
           log_task_fail
       fi
@@ -835,7 +837,7 @@ function install_tmux() {
     log_task_start "Installing tmux"
     if command -v brew >/dev/null 2>&1; then
       if execute brew install tmux; then
-          log_task_success
+          log_success
       else
           log_task_fail
       fi
@@ -853,7 +855,7 @@ function install_zellij() {
   if ! command -v zellij >/dev/null 2>&1; then
       log_task_start "Installing zellij"
       if execute cargo binstall -y zellij; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
@@ -866,17 +868,16 @@ function install_starship() {
   log_task_start "Installing starship"
   if is_darwin; then
     if execute brew install starship; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
   else
     if command -v starship >/dev/null 2>&1; then
-      log_task_success
       log_success "starship already installed"
     else
       if curl -sS https://starship.rs/install.sh | sh -s -- -y >/dev/null 2>&1; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
@@ -887,11 +888,10 @@ function install_starship() {
 function install_atuin() {
   log_task_start "Installing atuin"
   if command -v atuin >/dev/null 2>&1; then
-    log_task_success
     log_success "atuin already installed"
   else
     if execute curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
@@ -902,17 +902,16 @@ function install_pyenv() {
   log_task_start "Installing pyenv"
   if is_darwin; then
     if execute brew install pyenv pyenv-virtualenv; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
   else
     if [[ -d ~/.pyenv ]]; then
-      log_task_success
       log_success "pyenv already installed"
     else
       if execute curl https://pyenv.run | bash; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
@@ -927,7 +926,7 @@ function install_python_version() {
   if command -v pyenv >/dev/null 2>&1; then
       eval "$(pyenv init -)"
       if execute pyenv install --skip-existing 3.12; then
-        log_task_success
+        log_success
       else
         log_task_fail
       fi
@@ -941,7 +940,7 @@ function install_fonts_and_ui() {
   if is_darwin; then
     log_task_start "Installing fonts"
     if execute brew install font-meslo-lg-nerd-font; then
-        log_task_success
+        log_success
     else
         log_task_fail
     fi
