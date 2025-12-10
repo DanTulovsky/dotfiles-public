@@ -770,17 +770,16 @@ function main() {
     }
 
     log_info "Cloning dotfiles..."
+    rm -rf "$HOME"/.cfg
     git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
     config reset --hard HEAD
     config config --local status.showUntrackedFiles no
 
-    # --- Pyenv & Python ---
     install_pyenv
     install_starship
     install_atuin
     install_python_version
 
-    # --- Extra Tools ---
     install_cargo_binstall
     install_sk
     install_tmux
@@ -788,20 +787,11 @@ function main() {
 
     docker_linux_install
     gcloud_linux_install
-
     install_orbstack
-
     krew_install_plugins || true
-
-    # --- Fonts & UI ---
     install_fonts_and_ui
-
-    # --- Tmux Config ---
     install_tpm
-
-    # --- Language Servers (Last) ---
     lsp_install
-
     log_success "Setup Complete!"
 }
 
