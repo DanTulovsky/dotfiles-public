@@ -281,6 +281,18 @@ function log_error() {
   echo -e "\033[31m[ERROR]\033[0m $*" >&2
 }
 
+function log_task_start() {
+  echo -ne "\033[34m[INFO]\033[0m $*... "
+}
+
+function log_task_success() {
+  echo -e "\033[32m[OK]\033[0m"
+}
+
+function log_task_fail() {
+  echo -e "\033[31m[FAILED]\033[0m"
+}
+
 # ==============================================================================
 # Execution Helpers
 # ==============================================================================
@@ -289,14 +301,47 @@ function execute() {
   local temp_log
   temp_log=$(mktemp)
 
-  if "$@" > "$temp_log" 2>&1; then
+  # Run command in background
+  "$@" > "$temp_log" 2>&1 &
+  local pid=$!
+
+  # Spinner loop
+  local delay=0.1
+  local spinstr='|/-\'
+  while kill -0 "$pid" 2>/dev/null; do
+    local temp=${spinstr#?}
+    printf " [%c]  " "$spinstr"
+    local spinstr=$temp${spinstr%"$temp"}
+    sleep $delay
+    printf "\b\b\b\b\b\b"
+  done
+
+  wait "$pid"
+  local exit_code=$?
+
+  if [ $exit_code -eq 0 ]; then
     rm "$temp_log"
     return 0
   else
+    # If failed, we need to print newline to break from the "Installing..." line if it was used
+    # However, execute can be used without log_task_start.
+    # But usually it is used in context.
+    # We will assume caller handles success/fail OK marker, but we need to print error details.
+
+    # Clean up the spinner line artifact if any (handled by backspaces, but cursor is at pos)
+    printf "       \b\b\b\b\b\b\b"
+
+    rm "$temp_log"
+    # Return 1, caller will handle printing [FAILED] and then maybe we print the log?
+    # Better to just return output here on failure?
+    # No, caller expects us to handle error logging usually?
+    # Current contract: execute prints error log.
+
+    # We need a newline because log_error expects to start on new line
+    echo ""
     log_error "Command failed: $*"
     cat "$temp_log" >&2
-    rm "$temp_log"
-    return 1
+    return $exit_code
   fi
 }
 
@@ -390,38 +435,53 @@ function install_package() {
   local fedora_package="${2:-$package}" # Optional mapping for Fedora
 
   if is_fedora; then
-    log_info "Installing ${fedora_package} via dnf..."
+    log_task_start "Installing ${fedora_package} via dnf"
     if ! execute sudo dnf install -y "${fedora_package}"; then
+      log_task_fail
       log_warn "dnf failed to install ${fedora_package}"
       if command -v brew >/dev/null 2>&1; then
-        log_info "Trying brew install ${package}..."
-        execute brew install "${package}"
-        return $?
+        log_task_start "Trying brew install ${package}"
+        if execute brew install "${package}"; then
+            log_task_success
+            return 0
+        else
+            log_task_fail
+            return 1
+        fi
       fi
       return 1
     fi
+    log_task_success
   elif is_linux; then
-    log_info "Installing ${package} via apt..."
+    log_task_start "Installing ${package} via apt"
     if ! execute sudo apt install -y "${package}"; then
+      log_task_fail
       log_warn "apt failed to install ${package}"
       if command -v brew >/dev/null 2>&1; then
-        log_info "Trying brew install ${package}..."
-        execute brew install "${package}"
-        return $?
+        log_task_start "Trying brew install ${package}"
+        if execute brew install "${package}"; then
+            log_task_success
+            return 0
+        else
+            log_task_fail
+            return 1
+        fi
       fi
       return 1
     fi
+    log_task_success
   elif is_darwin; then
-    log_info "Installing ${package} via brew..."
+    log_task_start "Installing ${package} via brew"
     if ! execute brew install "${package}"; then
+      log_task_fail
       log_error "Failed to install ${package}"
       return 1
     fi
+    log_task_success
   else
     log_error "Unsupported OS for package installation"
     return 1
   fi
-  log_success "Installed ${package}"
 }
 
 # Ensure a command exists, otherwise attempt to install it
