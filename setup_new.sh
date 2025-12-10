@@ -591,10 +591,8 @@ function main() {
         elif is_darwin; then
           sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
         fi
-        log_warn "Default shell changed to fish. Please logout and login again."
-        # We generally don't want to exit inside a big script unless necessary,
-        # but the original script did. keeping behavior for now.
-        exit 0
+        log_warn "Default shell changed to fish. Please logout and login again for this to take effect."
+        # Continue execution
       else
         log_error "fish is not installed"
         exit 1
@@ -625,13 +623,12 @@ function main() {
       echo "Add this key to github before continuing: https://github.com/settings/keys"
       echo ""
       cat "${git_identity_file}".pub
-      exit 1
+      echo ""
+      read -rp "Press Enter once you have added the key to GitHub to continue..."
     fi
 
     # --- Dotfiles Configuration ---
     log_info "Configuring dotfiles..."
-    rm -rf "$HOME"/.cfg
-    alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
     if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
       echo ".cfg" >> "$HOME/.gitignore"
@@ -643,6 +640,10 @@ function main() {
     if [ -f ~/.keychain/"$(hostname)"-sh ]; then
         source ~/.keychain/"$(hostname)"-sh
     fi
+
+    function config() {
+      git --git-dir="$HOME/.cfg/" --work-tree="$HOME" "$@"
+    }
 
     log_info "Cloning dotfiles..."
     git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
