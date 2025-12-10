@@ -663,14 +663,14 @@ function main() {
 
     # --- Starship ---
     log_info "Installing starship..."
-    if is_darwin; then
-      brew install starship
-    else
+    if command -v brew >/dev/null 2>&1; then
       if command -v starship >/dev/null 2>&1; then
         log_success "starship already installed"
       else
-        curl -sS https://starship.rs/install.sh | sh -s -- -y
+        brew install starship
       fi
+    else
+      log_warn "brew not found, skipping starship. Install manually or enable brew."
     fi
 
     # --- Atuin ---
