@@ -504,22 +504,23 @@ function docker_linux_install() {
     return
   fi
 
-  sudo apt-get update
-  sudo apt-get install ca-certificates curl
-  sudo install -m 0755 -d /etc/apt/keyrings
-  sudo curl -fsSL https://download.docker.com/linux/"${dist}"/gpg -o /etc/apt/keyrings/docker.asc
-  sudo chmod a+r /etc/apt/keyrings/docker.asc
+  execute sudo apt-get update
+  execute sudo apt-get install ca-certificates curl
+  execute sudo install -m 0755 -d /etc/apt/keyrings
+  execute sudo curl -fsSL https://download.docker.com/linux/"${dist}"/gpg -o /etc/apt/keyrings/docker.asc
+  execute sudo chmod a+r /etc/apt/keyrings/docker.asc
 
   if [[ ! -e /etc/apt/sources.list.d/docker.list ]]; then
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${dist} \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    sudo apt-get update
+    execute sudo apt-get update
   else
     log_info "Docker repository already added"
   fi
-  sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+  log_info "Installing Docker packages..."
+  execute sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   sudo usermod -aG docker "$USER"
 }
 
@@ -548,15 +549,15 @@ EOM
     return
   fi
 
-  curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  execute curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-  sudo apt-get update && sudo apt-get install -y google-cloud-cli kubectl
+  execute sudo apt-get update && execute sudo apt-get install -y google-cloud-cli kubectl
 }
 
 function krew_install_plugins() {
   log_info "Installing Krew plugins..."
   (
-    set -x; cd "$(mktemp -d)" &&
+    cd "$(mktemp -d)" &&
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
     ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
     KREW="krew-${OS}_${ARCH}" &&
@@ -598,11 +599,11 @@ function install_lazygit() {
     major="$(get_os_release_major_version)"
     codename="$(get_os_release_codename)"
     if [[ ${codename} == "sid" ]]; then
-      sudo apt install -y lazygit
+      execute sudo apt install -y lazygit
       return
     fi
     if [[ -n ${major} ]] && (( major >= 13 )); then
-      sudo apt install -y lazygit
+      execute sudo apt install -y lazygit
       return
     fi
   elif is_ubuntu; then
@@ -611,7 +612,7 @@ function install_lazygit() {
     major="$(get_os_release_major_version)"
     minor="$(get_os_release_minor_version)"
     if [[ -n ${major} && -n ${minor} ]] && { (( major > 25 )) || (( major == 25 && minor >= 10 )); }; then
-      sudo apt install -y lazygit
+      execute sudo apt install -y lazygit
       return
     fi
   fi
@@ -645,7 +646,7 @@ function install_lazyjournal() {
     arch=$(test "$(uname -m)" = "aarch64" && echo "arm64" || echo "amd64")
     release_version=$(curl -L -sS -H 'Accept: application/json' https://github.com/Lifailon/lazyjournal/releases/latest | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
     curl -L -sS "https://github.com/Lifailon/lazyjournal/releases/download/${release_version}/lazyjournal-${release_version}-${arch}.deb" -o /tmp/lazyjournal.deb
-    sudo apt install /tmp/lazyjournal.deb
+    execute sudo apt install /tmp/lazyjournal.deb
     return
   fi
 
@@ -678,8 +679,8 @@ function system_update_linux() {
       if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
       fi
-      sudo apt-get update
-      sudo apt-get -y build-dep python3
+      execute sudo apt-get update
+      execute sudo apt-get -y build-dep python3
   fi
 }
 
