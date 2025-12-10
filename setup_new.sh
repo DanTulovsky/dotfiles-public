@@ -210,6 +210,8 @@ function setup_dotfiles() {
 # Constants & Configuration
 # ==============================================================================
 
+POST_INSTALL_MESSAGES=()
+
 # Core tools required on all systems
 REQUIRED_COMMANDS=(
   git
@@ -342,10 +344,21 @@ function execute() {
   fi
 
   local temp_log
-  temp_log=$(mktemp)
+  local keep_log=false
+
+  if [[ -n "${EXECUTE_LOG_FILE:-}" ]]; then
+    temp_log="${EXECUTE_LOG_FILE}"
+    keep_log=true
+  else
+    temp_log=$(mktemp)
+  fi
 
   # Run command in background
-  "$@" > "$temp_log" 2>&1 &
+  if [[ "${EXECUTE_LOG_APPEND:-}" == "true" ]]; then
+      "$@" >> "$temp_log" 2>&1 &
+  else
+      "$@" > "$temp_log" 2>&1 &
+  fi
   local pid=$!
 
   # Spinner loop
@@ -363,7 +376,9 @@ function execute() {
   local exit_code=$?
 
   if [ $exit_code -eq 0 ]; then
-    rm "$temp_log"
+    if [[ "$keep_log" == "false" ]]; then
+        rm "$temp_log"
+    fi
     return 0
   else
     # If failed, we need to print newline to break from the "Installing..." line if it was used
@@ -379,13 +394,18 @@ function execute() {
 
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
       # Suppress error output
-      rm "$temp_log"
+      if [[ "$keep_log" == "false" ]]; then
+          rm "$temp_log"
+      fi
       return $exit_code
     fi
 
     log_error "Command failed: $*"
     cat "$temp_log" >&2
-    rm "$temp_log"
+
+    if [[ "$keep_log" == "false" ]]; then
+        rm "$temp_log"
+    fi
     return $exit_code
   fi
 }
@@ -706,6 +726,12 @@ EOM
 }
 
 function krew_install_plugins() {
+  local krew_log
+  krew_log="$(mktemp /tmp/krew-install.XXXXXX.log)"
+  # Ensure we export for subshell visibility if needed, but we pass via env var to execute
+  export EXECUTE_LOG_FILE="$krew_log"
+  export EXECUTE_LOG_APPEND="true"
+
   log_task_start "Installing Krew plugins"
   if (
     cd "$(mktemp -d)" &&
@@ -720,9 +746,13 @@ function krew_install_plugins() {
       execute -s ~/.krew_plugins
   }; then
     log_success
+    rm "$krew_log"
   else
-    log_warn "Krew install failed, but continuing. Check logs if needed."
+    log_warn "Krew install failed, but continuing. Check logs: $krew_log"
   fi
+
+  unset EXECUTE_LOG_FILE
+  unset EXECUTE_LOG_APPEND
 }
 
 function install_lazygit() {
@@ -993,7 +1023,7 @@ function install_fonts_and_ui() {
     defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
     defaults delete -g ApplePressAndHoldEnabled || true
   else
-    log_info "Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts"
+    POST_INSTALL_MESSAGES+=("Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts")
   fi
 }
 
@@ -1067,6 +1097,15 @@ function main() {
     install_tpm
     lsp_install
     log_success "Setup Complete!"
+
+    if [ ${#POST_INSTALL_MESSAGES[@]} -gt 0 ]; then
+        echo ""
+        log_info "Manual Steps Required:"
+        for msg in "${POST_INSTALL_MESSAGES[@]}"; do
+            echo -e "  - \033[33m$msg\033[0m"
+        done
+        echo ""
+    fi
 }
 
 main "$@"
