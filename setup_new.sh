@@ -310,7 +310,10 @@ function log_task_success() {
 
 function log_task_fail() {
   echo -e "\033[31m[FAILED]\033[0m"
+  exit 1
 }
+
+
 
 # ==============================================================================
 # Execution Helpers
@@ -350,16 +353,11 @@ function execute() {
     # Clean up the spinner line artifact if any (handled by backspaces, but cursor is at pos)
     printf "       \b\b\b\b\b\b\b"
 
-    rm "$temp_log"
-    # Return 1, caller will handle printing [FAILED] and then maybe we print the log?
-    # Better to just return output here on failure?
-    # No, caller expects us to handle error logging usually?
-    # Current contract: execute prints error log.
-
     # We need a newline because log_error expects to start on new line
     echo ""
     log_error "Command failed: $*"
     cat "$temp_log" >&2
+    rm "$temp_log"
     return $exit_code
   fi
 }
@@ -683,7 +681,7 @@ function krew_install_plugins() {
   }; then
     log_task_success
   else
-    log_task_fail
+    log_warn "Krew install failed, but continuing. Check logs if needed."
   fi
 }
 
