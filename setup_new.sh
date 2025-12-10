@@ -107,23 +107,7 @@ function get_os_release_codename() {
 # Install Functions
 # ==============================================================================
 
-function add_hashicorp_repo() {
-  if is_fedora; then
-    if [[ -e /etc/yum.repos.d/hashicorp.repo ]]; then
-      echo "Hashicorp repo already added"
-      return
-    fi
-    sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
-  else
-    if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
-      echo "Hashicorp repo already added"
-      return
-    fi
-    wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
-    sudo apt update
-  fi
-}
+
 
 function lsp_install() {
   sudo npm install -g n
@@ -138,17 +122,7 @@ function lsp_install() {
   go install golang.org/x/tools/cmd/goimports@latest
   sudo npm i -g sql-language-server
 
-  if is_darwin; then
-    brew install hashicorp/tap/terraform-ls
-  fi
-  if is_linux; then
-    add_hashicorp_repo
-    if is_fedora; then
-      sudo dnf install -y terraform-ls
-    else
-      sudo apt install -y terraform-ls
-    fi
-  fi
+  brew install hashicorp/tap/terraform-ls
 
   cargo install taplo-cli --locked --features lsp
   sudo npm i -g typescript typescript-language-server
@@ -158,7 +132,7 @@ function lsp_install() {
 function docker_linux_install() {
   if is_fedora; then
       sudo dnf -y install dnf-plugins-core
-      sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+      sudo curl -o /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/fedora/docker-ce.repo
       sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
       sudo systemctl start docker
       sudo usermod -aG docker "$USER"
@@ -573,7 +547,7 @@ eval "$(pyenv init -)"
 pyenv install --skip-existing 3.12
 
 # install language servers
-lsp_install
+
 
 # install homebrew (Linux handled if missing)
 if command -v brew; then
@@ -593,6 +567,9 @@ else
     fi
   fi
 fi
+
+# install language servers
+lsp_install
 
 # install cargo-binstall
 if ! command -v cargo-binstall >/dev/null 2>&1; then
