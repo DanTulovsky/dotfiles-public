@@ -3,24 +3,128 @@
 set -e
 
 shopt -s expand_aliases
+
+# ==============================================================================
+# Variables
+# ==============================================================================
+
 required_commands="git fzf keychain vim fish"
 required_packages="htop btop npm golang rclone duf lsd ripgrep"
+
+# Linux General
 linux_required_commands="ssh-askpass"
-linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
+
+# Debian/Ubuntu
 debian_required_packages="snapd"
+ubuntu_common_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
+
+# Fedora
+fedora_required_packages="make automake gcc gcc-c++ kernel-devel zlib-devel readline-devel openssl-devel bzip2-devel libffi-devel sqlite-devel xz-devel pipx ranger gnupg curl direnv bind-utils openssh-askpass dnf-plugins-core"
+
 snap_required_packages=""
 
-function add_hashicorp_repo() {
- if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
-   echo "Hashicorp repo already added"
-   return
- fi
- wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
- echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
- sudo apt update
+# ==============================================================================
+# Helper Functions: OS Detection
+# ==============================================================================
+
+function is_linux() {
+  uname -a | grep -i linux > /dev/null 2>&1
+  return $?
 }
 
-# language servers
+function is_darwin() {
+  uname -a | grep -i darwin > /dev/null 2>&1
+  return $?
+}
+
+function is_debian() {
+  uname -a | grep -i debian > /dev/null 2>&1
+  return $?
+}
+
+function is_ubuntu() {
+  uname -a | grep -i ubuntu > /dev/null 2>&1
+  return $?
+}
+
+function is_jammy() {
+  uname -a | grep -i jammy > /dev/null 2>&1
+  return $?
+}
+
+function is_fedora() {
+  if [ -f /etc/os-release ]; then
+    grep -qi "^ID=.*fedora" /etc/os-release
+    return $?
+  fi
+  return 1
+}
+
+function is_arm_linux() {
+  uname -m | grep -i arm > /dev/null 2>&1
+  return $?
+}
+
+function load_os_release() {
+  if [[ -n ${OS_RELEASE_LOADED:-} ]]; then
+    return
+  fi
+  if [[ -r /etc/os-release ]]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    OS_RELEASE_LOADED=1
+  else
+    OS_RELEASE_LOADED=0
+  fi
+}
+
+function get_os_release_major_version() {
+  load_os_release
+  local version="${VERSION_ID:-}"
+  if [[ ${version} =~ ^([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    printf '0\n'
+  fi
+}
+
+function get_os_release_minor_version() {
+  load_os_release
+  local version="${VERSION_ID:-}"
+  if [[ ${version} =~ ^[0-9]+\.([0-9]+) ]]; then
+    printf '%s\n' "${BASH_REMATCH[1]}"
+  else
+    printf '0\n'
+  fi
+}
+
+function get_os_release_codename() {
+  load_os_release
+  printf '%s\n' "${VERSION_CODENAME:-}"
+}
+
+# ==============================================================================
+# Install Functions
+# ==============================================================================
+
+function add_hashicorp_repo() {
+  if is_fedora; then
+    if [[ -e /etc/yum.repos.d/hashicorp.repo ]]; then
+      echo "Hashicorp repo already added"
+      return
+    fi
+    sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
+  else
+    if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
+      echo "Hashicorp repo already added"
+      return
+    fi
+    wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/hashicorp.list
+    sudo apt update
+  fi
+}
+
 function lsp_install() {
   sudo npm install -g n
   sudo n stable
@@ -34,21 +138,35 @@ function lsp_install() {
   go install golang.org/x/tools/gopls@latest
   go install github.com/go-delve/delve/cmd/dlv@latest
   go install golang.org/x/tools/cmd/goimports@latest
-  sudo npm i -g vscode-langservers-extracted
   sudo npm i -g sql-language-server
+
   if is_darwin; then
     brew install hashicorp/tap/terraform-ls
   fi
   if is_linux; then
     add_hashicorp_repo
-    sudo apt install terraform-ls
+    if is_fedora; then
+      sudo dnf install -y terraform-ls
+    else
+      sudo apt install -y terraform-ls
+    fi
   fi
+
   cargo install taplo-cli --locked --features lsp
   sudo npm i -g typescript typescript-language-server
   sudo npm i -g yaml-language-server@next
 }
 
 function docker_linux_install() {
+  if is_fedora; then
+      sudo dnf -y install dnf-plugins-core
+      sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+      sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+      sudo systemctl start docker
+      sudo usermod -aG docker "$USER"
+      return
+  fi
+
   dist=""
   if is_debian; then
     dist="debian"
@@ -57,7 +175,7 @@ function docker_linux_install() {
     dist="ubuntu"
   fi
   if [ -z "${dist}" ]; then
-    echo "Unsupported distribution"
+    echo "Unsupported distribution for Docker install"
     return
   fi
 
@@ -81,16 +199,31 @@ function docker_linux_install() {
   sudo usermod -aG docker "$USER"
 }
 
-gcloud_linux_install() {
+function gcloud_linux_install() {
   if command -v gcloud; then
     return
   fi
+
+  if is_fedora; then
+    sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOM
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOM
+    sudo dnf install -y google-cloud-cli kubectl
+    return
+  fi
+
   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
   sudo apt-get update && sudo apt-get install -y google-cloud-cli kubectl
 }
 
-krew_install_plugins() {
+function krew_install_plugins() {
   (
     set -x; cd "$(mktemp -d)" &&
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
@@ -104,75 +237,7 @@ krew_install_plugins() {
   ~/.krew_plugins
 }
 
-function is_linux() {
-  uname -a |grep -i linux > /dev/null 2>&1
-  return $?
-}
-
-function is_darwin() {
-  uname -a |grep -i darwin > /dev/null 2>&1
-  return $?
-}
-
-function is_debian() {
-  uname -a |grep -i debian > /dev/null 2>&1
-  return $?
-}
-
-function is_ubuntu() {
-  uname -a |grep -i ubuntu > /dev/null 2>&1
-  return $?
-}
-
-function is_jammy() {
-  uname -a |grep -i jammy > /dev/null 2>&1
-  return $?
-}
-
-function is_arm_linx() {
-  uname -m |grep -i arm > /dev/null 2>&1
-  return $?
-}
-
-load_os_release() {
-  if [[ -n ${OS_RELEASE_LOADED:-} ]]; then
-    return
-  fi
-  if [[ -r /etc/os-release ]]; then
-    # shellcheck disable=SC1091
-    . /etc/os-release
-    OS_RELEASE_LOADED=1
-  else
-    OS_RELEASE_LOADED=0
-  fi
-}
-
-get_os_release_major_version() {
-  load_os_release
-  local version="${VERSION_ID:-}"
-  if [[ ${version} =~ ^([0-9]+) ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-  else
-    printf '0\n'
-  fi
-}
-
-get_os_release_minor_version() {
-  load_os_release
-  local version="${VERSION_ID:-}"
-  if [[ ${version} =~ ^[0-9]+\.([0-9]+) ]]; then
-    printf '%s\n' "${BASH_REMATCH[1]}"
-  else
-    printf '0\n'
-  fi
-}
-
-get_os_release_codename() {
-  load_os_release
-  printf '%s\n' "${VERSION_CODENAME:-}"
-}
-
-install_lazygit() {
+function install_lazygit() {
   if command -v lazygit >/dev/null 2>&1; then
     echo "lazygit already installed"
     return
@@ -180,6 +245,11 @@ install_lazygit() {
 
   if is_darwin; then
     brew install lazygit
+    return
+  fi
+
+  if is_fedora; then
+    sudo dnf install -y lazygit
     return
   fi
 
@@ -224,7 +294,7 @@ install_lazygit() {
   rm -rf "${tmpdir}"
 }
 
-install_lazyjournal() {
+function install_lazyjournal() {
   if command -v lazyjournal >/dev/null 2>&1; then
     echo "lazyjournal already installed"
     return
@@ -243,9 +313,13 @@ install_lazyjournal() {
     return
   fi
 
-  # For other systems, use the install script
+  # For other systems (Fedora), use the install script
   curl -sS https://raw.githubusercontent.com/Lifailon/lazyjournal/main/install.sh | bash
 }
+
+# ==============================================================================
+# Main Execution Logic
+# ==============================================================================
 
 # initial mac setup
 if is_darwin; then
@@ -255,12 +329,17 @@ if is_darwin; then
   fi
 fi
 
+# Required Commands
 for com in ${required_commands}; do
   if command -v "${com}" >/dev/null 2>&1; then
     echo "${com} available"
   else
     echo "${com} is required"
-    if is_linux; then
+    if is_fedora; then
+      if ! sudo dnf install -y "${com}"; then
+        exit 1
+      fi
+    elif is_linux; then
       if ! sudo apt install -y "${com}"; then
         exit 1
       fi
@@ -274,8 +353,23 @@ for com in ${required_commands}; do
   fi
 done
 
+# Required Packages
 for pkg in ${required_packages}; do
-  if is_linux; then
+  if is_fedora; then
+     if [[ ${pkg} = "golang" ]]; then
+        # Fedora usually has recent go, or user might want specific version.
+        # 'golang' package is standard in Fedora.
+        if ! sudo dnf install -y golang; then
+             exit 1
+        fi
+        continue
+     fi
+     # Map generic names to Fedora if needed, or assume they exist
+     # htop, btop, npm, rclone, duf, lsd, ripgrep are all standard or common
+     if ! sudo dnf install -y "${pkg}"; then
+        exit 1
+     fi
+  elif is_linux; then
     if [[ ${pkg} = "golang" ]]; then
       if is_jammy; then
         sudo apt install snapd
@@ -295,62 +389,84 @@ for pkg in ${required_packages}; do
   fi
 done
 
-# Linux
+# Linux Specific Commands
 for com in ${linux_required_commands}; do
-  if command -v ${com} >/dev/null 2>&1; then
+  if command -v "${com}" >/dev/null 2>&1; then
           echo "${com} available"
   else
     echo "${com} is required"
-    if is_linux; then
-      if ! sudo apt install -y ${com}; then
+    if is_fedora; then
+      # ssh-askpass handling on Fedora
+      if [[ "${com}" == "ssh-askpass" ]]; then
+         if ! sudo dnf install -y openssh-askpass; then
+             exit 1
+         fi
+      else
+         if ! sudo dnf install -y "${com}"; then
+           exit 1
+         fi
+      fi
+    elif is_linux; then
+      if ! sudo apt install -y "${com}"; then
         exit 1
       fi
     fi
   fi
 done
 
-# Linux required packages
+# Linux Required Packages & Configuration
 if is_linux; then
-  sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
-  sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-  sudo apt-get update
-  sudo apt-get -y build-dep python3
-
-  for pkg in ${linux_required_packages}; do
-    if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
-      echo "${pkg} available"
-    else
-      echo "${pkg} is required"
-      if ! sudo apt install -y "${pkg}"; then
-        exit 1
+  if is_fedora; then
+      sudo dnf groupinstall -y "Development Tools"
+      for pkg in ${fedora_required_packages}; do
+         if ! sudo dnf install -y "${pkg}"; then
+            exit 1
+         fi
+      done
+  else
+      # Debian/Ubuntu logic
+      sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+      if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
+         sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
       fi
-    fi
-  done
+      sudo apt-get update
+      sudo apt-get -y build-dep python3
 
-  sudo locale-gen en_US.UTF-8
+      for pkg in ${ubuntu_common_packages}; do
+        if dpkg -l | grep -i "${pkg}" >/dev/null 2>&1; then
+          echo "${pkg} available"
+        else
+          echo "${pkg} is required"
+          if ! sudo apt install -y "${pkg}"; then
+            exit 1
+          fi
+        fi
+      done
 
-  if is_debian; then
-    for pkg in ${debian_required_packages}; do
-      if ! sudo apt install -y "${pkg}"; then
-        exit 1
+      sudo locale-gen en_US.UTF-8
+
+      if is_debian; then
+        for pkg in ${debian_required_packages}; do
+          if ! sudo apt install -y "${pkg}"; then
+            exit 1
+          fi
+        done
+
+        # snap packages
+        for pkg in ${snap_required_packages}; do
+          if ! sudo snap install "${pkg}" --classic; then
+            exit 1
+          fi
+        done
       fi
-    done
-
-    # snap packages
-    for pkg in ${snap_required_packages}; do
-      if ! sudo snap install "${pkg}" --classic; then
-        exit 1
-      fi
-    done
   fi
 fi
 
 install_lazygit
-
 install_lazyjournal
 
 # set fish as default shell (before cargo so rustup detects fish)
-if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
+if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
   echo "Setting default shell to fish..."
   if command -v fish >/dev/null 2>&1; then
     if is_linux; then
@@ -359,6 +475,7 @@ if ! echo "${SHELL}" |grep fish >/dev/null 2>&1; then
       sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
     fi
     echo "Default shell changed to fish. Please logout and log back in, then run this script again."
+    # We exit here because shell change requires relogin
     exit 0
   else
     echo "Error: fish is not installed"
@@ -426,7 +543,7 @@ else
   if [[ -d ~/.pyenv ]]; then
     echo "pyenv already installed"
   else
-    curl https://pyenv.run |bash
+    curl https://pyenv.run | bash
   fi
 fi
 
@@ -444,21 +561,31 @@ fi
 echo "Installing atuin..."
 if command -v atuin >/dev/null 2>&1; then
   echo "atuin already installed"
-else
+  else
   curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
 fi
 
 echo "Installing python 3.12..."
+# Ensure pyenv is usable in this session
+export PYENV_ROOT="$HOME/.pyenv"
+[[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init -)"
+
 pyenv install --skip-existing 3.12
 
 # install language servers
 lsp_install
 
-# install homebrew
+# install homebrew (Linux handled if missing)
 if command -v brew; then
   echo "brew already installed"
 else
   /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+  # Add brew to path for Linux if just installed
+  if is_linux; then
+      eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  fi
 
   # install homebrewapp
   if [[ -e ~/.homebrew_apps ]]; then
@@ -534,6 +661,6 @@ if is_darwin; then
   defaults write com.vscodium ApplePressAndHoldEnabled -bool false                      # For VS Codium
   defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false   # For VS Codium Exploration users
   defaults delete -g ApplePressAndHoldEnabled
- fi
+fi
 
-touch $HOME/.tmux.conf.local
+touch "$HOME"/.tmux.conf.local
