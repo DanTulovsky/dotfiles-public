@@ -11,18 +11,23 @@ function install_homebrew() {
     # Initial Mac Setup
     if is_darwin; then
       if ! command -v brew > /dev/null 2>&1; then
-        log_info "Installing Homebrew..."
+        log_task_start "Installing Homebrew"
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-    execute brew install curl wget git fzf keychain tmux vim fish direnv
+        if execute brew install curl wget git fzf keychain tmux vim fish direnv; then
+            log_task_success
+        else
+            log_task_fail
+        fi
       fi
     fi
 
     # Install Homebrew on Linux if missing
     if ! command -v brew >/dev/null 2>&1; then
          if is_linux; then
-            log_info "Installing Homebrew for Linux..."
+            log_task_start "Installing Homebrew for Linux"
              /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+             log_task_success
          fi
     fi
 }
@@ -117,18 +122,29 @@ function setup_shell() {
 
 function install_rust() {
     # --- Cargo / Rust ---
-    log_info "Instaling/updating Rust..."
+    log_task_start "Instaling/updating Rust"
     if ! command -v cargo; then
-      curl https://sh.rustup.rs -sSf | sh -s -- -y
-      export PATH="$HOME/.cargo/bin:$PATH"
+      if curl https://sh.rustup.rs -sSf | sh -s -- -y >/dev/null 2>&1; then
+          export PATH="$HOME/.cargo/bin:$PATH"
+          log_task_success
+      else
+          log_task_fail
+      fi
+    else
+        log_task_success
     fi
 }
 
 function install_dust() {
-    log_info "Installing dust..."
+    log_task_start "Installing dust"
     if ! command -v dust >/dev/null 2>&1; then
-      execute cargo install du-dust
+      if execute cargo install du-dust; then
+        log_task_success
+      else
+        log_task_fail
+      fi
     else
+      log_task_success
       log_success "dust already installed"
     fi
 }
@@ -149,10 +165,10 @@ function setup_ssh_keys() {
 
 function setup_dotfiles() {
     # --- Dotfiles Configuration ---
-    log_info "Configuring dotfiles..."
+    log_task_start "Configuring dotfiles"
 
     if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
-      echo ".cfg" >> "$HOME/.gitignore"
+      execute echo ".cfg" >> "$HOME/.gitignore"
     fi
 
     log_info "Starting ssh agent..."
@@ -167,11 +183,14 @@ function setup_dotfiles() {
       git --git-dir="$HOME/.cfg/" --work-tree="$HOME" "$@"
     }
 
-    log_info "Cloning dotfiles..."
-    rm -rf "$HOME"/.cfg
-    git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
-    config reset --hard HEAD
-    config config --local status.showUntrackedFiles no
+    execute rm -rf "$HOME"/.cfg
+    if execute git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg; then
+        execute config reset --hard HEAD
+        execute config config --local status.showUntrackedFiles no
+        log_task_success
+    else
+        log_task_fail
+    fi
 }
 
 # ==============================================================================
@@ -429,10 +448,27 @@ function get_os_release_codename() {
 # Package Management Helper Functions
 # ==============================================================================
 
+function is_package_installed() {
+  local package="$1"
+  if is_darwin; then
+    brew list --formula "$package" >/dev/null 2>&1 || brew list --cask "$package" >/dev/null 2>&1
+  elif is_fedora; then
+    rpm -q "$package" >/dev/null 2>&1
+  elif is_linux; then
+    dpkg -s "$package" >/dev/null 2>&1
+  fi
+}
+
 # Install a package using the system's package manager
 function install_package() {
   local package="$1"
   local fedora_package="${2:-$package}" # Optional mapping for Fedora
+
+  if is_package_installed "${package}"; then
+     log_task_success
+     log_success "${package} is already installed"
+     return 0
+  fi
 
   if is_fedora; then
     log_task_start "Installing ${fedora_package} via dnf"
@@ -528,9 +564,13 @@ function lsp_install() {
   execute go install github.com/go-delve/delve/cmd/dlv@latest
   execute go install golang.org/x/tools/cmd/goimports@latest
 
-  # Terraform
   if command -v brew >/dev/null 2>&1; then
-      execute brew install hashicorp/tap/terraform-ls
+      log_task_start "Installing terraform-ls via brew"
+      if execute brew install hashicorp/tap/terraform-ls; then
+        log_task_success
+      else
+        log_task_fail
+      fi
   else
       log_warn "brew not found, skipping terraform-ls. Install manually or enable brew."
   fi
@@ -545,22 +585,23 @@ function docker_linux_install() {
   if ! is_linux; then
     return
   fi
-  log_info "Checking Docker installation for Linux..."
+  log_task_start "Checking Docker installation for Linux"
   if is_fedora; then
-      sudo dnf -y install dnf-plugins-core
-      sudo curl -o /etc/yum.repos.d/docker-ce.repo https://download.docker.com/linux/fedora/docker-ce.repo
-      sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-      sudo systemctl start docker
-      sudo usermod -aG docker "$USER"
+      if execute sudo dnf -y install dnf-plugins-core \
+        && execute sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
+        && execute sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+            log_task_success
+      else
+            log_task_fail
+      fi
+      log_task_start "Adding user to docker group"
+      execute sudo usermod -aG docker "$USER" && log_task_success || log_task_fail
       return
   fi
 
-  local dist=""
-  if is_debian; then dist="debian"; fi
-  if is_ubuntu; then dist="ubuntu"; fi
-
-  if [ -z "${dist}" ]; then
-    log_warn "Unsupported distribution for Docker install"
+  if command -v docker >/dev/null 2>&1; then
+    log_task_success
+    log_success "Docker already installed"
     return
   fi
 
@@ -577,11 +618,16 @@ function docker_linux_install() {
       sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
     execute sudo apt-get update
   else
-    log_info "Docker repository already added"
+    true
   fi
-  log_info "Installing Docker packages..."
-  execute sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-  sudo usermod -aG docker "$USER"
+
+  log_task_start "Installing Docker packages"
+  if execute sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
+    log_task_success
+  else
+    log_task_fail
+  fi
+  execute sudo usermod -aG docker "$USER"
 }
 
 function gcloud_linux_install() {
@@ -594,7 +640,7 @@ function gcloud_linux_install() {
     return
   fi
 
-  log_info "Installing gcloud..."
+  log_task_start "Installing Google Cloud SDK"
   if is_fedora; then
     sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOM
 [google-cloud-cli]
@@ -605,18 +651,26 @@ gpgcheck=1
 repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOM
-    sudo dnf install -y google-cloud-cli kubectl
+    if execute sudo dnf install -y google-cloud-cli kubectl; then
+      log_task_success
+    else
+      log_task_fail
+    fi
     return
   fi
 
   execute curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
-  execute sudo apt-get update && execute sudo apt-get install -y google-cloud-cli kubectl
+  if execute sudo apt-get update && execute sudo apt-get install -y google-cloud-cli kubectl; then
+    log_task_success
+  else
+    log_task_fail
+  fi
 }
 
 function krew_install_plugins() {
-  log_info "Installing Krew plugins..."
-  (
+  log_task_start "Installing Krew plugins"
+  if (
     cd "$(mktemp -d)" &&
     OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
     ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
@@ -624,10 +678,14 @@ function krew_install_plugins() {
     execute curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
     execute tar zxf "${KREW}.tar.gz" &&
     execute ./"${KREW}" install krew
-  )
-  hash -r
-  log_info "Running .krew_plugins..."
-  execute ~/.krew_plugins || log_warn "Failed to run .krew_plugins"
+  ) && {
+      execute hash -r
+      execute ~/.krew_plugins
+  }; then
+    log_task_success
+  else
+    log_task_fail
+  fi
 }
 
 function install_lazygit() {
@@ -636,16 +694,24 @@ function install_lazygit() {
     return
   fi
 
-  log_info "Installing lazygit..."
+  log_task_start "Installing lazygit"
 
   if is_darwin; then
-    brew install lazygit
+    if execute brew install lazygit; then
+        log_task_success
+    else
+        log_task_fail
+    fi
     return
   fi
 
   if is_fedora; then
-    sudo dnf -y copr enable dejan/lazygit
-    sudo dnf install -y lazygit
+    execute sudo dnf -y copr enable dejan/lazygit
+    if execute sudo dnf install -y lazygit; then
+        log_task_success
+    else
+        log_task_fail
+    fi
     return
   fi
 
@@ -717,9 +783,13 @@ function install_lazyjournal() {
 
 function install_cargo_binstall() {
   if ! command -v cargo-binstall >/dev/null 2>&1; then
-    log_info "Installing cargo-binstall..."
+    log_task_start "Installing cargo-binstall"
     if command -v brew >/dev/null 2>&1; then
-        execute brew install cargo-binstall
+        if execute brew install cargo-binstall; then
+            log_task_success
+        else
+            log_task_fail
+        fi
     else
         log_warn "Manual install of cargo-binstall required on Linux if brew is missing"
         # Optional: cargo install cargo-binstall
@@ -747,10 +817,15 @@ function system_update_linux() {
 
 function install_sk() {
   if ! command -v sk >/dev/null 2>&1; then
-    log_info "Installing sk..."
+    log_task_start "Installing sk"
     if command -v brew >/dev/null 2>&1; then
-      execute brew install sk
+      if execute brew install sk; then
+          log_task_success
+      else
+          log_task_fail
+      fi
     else
+      log_task_fail
       log_warn "brew not found, cannot install sk"
     fi
   else
@@ -760,10 +835,15 @@ function install_sk() {
 
 function install_tmux() {
   if ! command -v tmux >/dev/null 2>&1; then
-    log_info "Installing tmux..."
+    log_task_start "Installing tmux"
     if command -v brew >/dev/null 2>&1; then
-      execute brew install tmux
+      if execute brew install tmux; then
+          log_task_success
+      else
+          log_task_fail
+      fi
     else
+      log_task_fail # because we switch context to next line if we fallback
       log_warn "brew not found. Fallback to system package implementation: install_package"
       install_package "tmux"
     fi
@@ -774,63 +854,101 @@ function install_tmux() {
 
 function install_zellij() {
   if ! command -v zellij >/dev/null 2>&1; then
-      log_info "Installing zellij..."
-      execute cargo binstall -y zellij
+      log_task_start "Installing zellij"
+      if execute cargo binstall -y zellij; then
+        log_task_success
+      else
+        log_task_fail
+      fi
   else
       log_success "zellij already installed"
   fi
 }
 
 function install_starship() {
-  log_info "Installing starship..."
+  log_task_start "Installing starship"
   if is_darwin; then
-    execute brew install starship
+    if execute brew install starship; then
+        log_task_success
+    else
+        log_task_fail
+    fi
   else
     if command -v starship >/dev/null 2>&1; then
+      log_task_success
       log_success "starship already installed"
     else
-      curl -sS https://starship.rs/install.sh | sh -s -- -y
+      if curl -sS https://starship.rs/install.sh | sh -s -- -y >/dev/null 2>&1; then
+        log_task_success
+      else
+        log_task_fail
+      fi
     fi
   fi
 }
 
 function install_atuin() {
-  log_info "Installing atuin..."
+  log_task_start "Installing atuin"
   if command -v atuin >/dev/null 2>&1; then
+    log_task_success
     log_success "atuin already installed"
   else
-    curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+    if execute curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh; then
+        log_task_success
+    else
+        log_task_fail
+    fi
   fi
 }
 
 function install_pyenv() {
-  log_info "Installing pyenv..."
+  log_task_start "Installing pyenv"
   if is_darwin; then
-    execute brew install pyenv pyenv-virtualenv
+    if execute brew install pyenv pyenv-virtualenv; then
+        log_task_success
+    else
+        log_task_fail
+    fi
   else
     if [[ -d ~/.pyenv ]]; then
+      log_task_success
       log_success "pyenv already installed"
     else
-      curl https://pyenv.run | bash
+      if execute curl https://pyenv.run | bash; then
+        log_task_success
+      else
+        log_task_fail
+      fi
     fi
   fi
 }
 
 function install_python_version() {
-  log_info "Installing python 3.12..."
+  log_task_start "Installing python 3.12"
   export PYENV_ROOT="$HOME/.pyenv"
   [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
   if command -v pyenv >/dev/null 2>&1; then
       eval "$(pyenv init -)"
-      execute pyenv install --skip-existing 3.12
+      if execute pyenv install --skip-existing 3.12; then
+        log_task_success
+      else
+        log_task_fail
+      fi
   else
+      log_task_fail
       log_error "pyenv not found, skipping python 3.12 install"
   fi
 }
 
 function install_fonts_and_ui() {
   if is_darwin; then
-    execute brew install font-meslo-lg-nerd-font
+    log_task_start "Installing fonts"
+    if execute brew install font-meslo-lg-nerd-font; then
+        log_task_success
+    else
+        log_task_fail
+    fi
+
 
     # VSCode settings
     defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
