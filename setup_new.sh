@@ -572,7 +572,7 @@ function ensure_command() {
 # ==============================================================================
 
 function lsp_install() {
-  log_info "Installing Language Servers..."
+  log_task_start "Installing Language Servers"
 
   # Node-based LSPs
   execute sudo npm install -g n
@@ -597,6 +597,9 @@ function lsp_install() {
   execute go install golang.org/x/tools/gopls@latest
   execute go install github.com/go-delve/delve/cmd/dlv@latest
   execute go install golang.org/x/tools/cmd/goimports@latest
+
+  # Close initial task
+  log_success
 
   if command -v brew >/dev/null 2>&1; then
       log_task_start "Installing terraform-ls via brew"
@@ -669,6 +672,7 @@ function gcloud_linux_install() {
   fi
 
   if command -v gcloud >/dev/null 2>&1; then
+    log_task_start "Checking gcloud"
     log_success
     return
   fi
@@ -995,10 +999,14 @@ function install_fonts_and_ui() {
 
 function install_tpm() {
   touch "$HOME"/.tmux.conf.local
-  log_info "Installing tmux plugin manager..."
+  log_task_start "Installing tmux plugin manager"
   mkdir -p "$HOME/.tmux/plugins"
   if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-    execute git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    if execute git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm; then
+       log_success
+    else
+       log_task_fail
+    fi
   else
     log_success
   fi
