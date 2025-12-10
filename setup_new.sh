@@ -537,7 +537,7 @@ echo "Installing atuin..."
 if command -v atuin >/dev/null 2>&1; then
   echo "atuin already installed"
 else
-  curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- -y
+  curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
 fi
 
 echo "Installing python 3.12..."
