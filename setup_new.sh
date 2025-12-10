@@ -5,12 +5,19 @@ set -e
 shopt -s expand_aliases
 required_commands="git fzf keychain vim fish"
 required_packages="htop btop npm golang rclone duf lsd ripgrep"
+fedora_required_packages="htop btop npm golang rclone duf lsd ripgrep"
 linux_required_commands="ssh-askpass"
 linux_required_packages="build-essential zlib1g zlib1g-dev libreadline8 libreadline-dev libssl-dev lzma bzip2 libffi-dev libsqlite3-0 libsqlite3-dev libbz2-dev liblzma-dev pipx ranger locales bzr apt-transport-https ca-certificates gnupg curl direnv bind9-utils"
+fedora_dev_packages="gcc gcc-c++ make zlib zlib-devel readline readline-devel openssl-devel lzma bzip2 libffi-devel sqlite-libs sqlite-devel bzip2-devel xz-devel pipx ranger bzr ca-certificates gnupg curl direnv bind-utils"
 debian_required_packages="snapd"
 snap_required_packages=""
 
 function add_hashicorp_repo() {
+ if is_fedora; then
+   sudo dnf install -y dnf-plugins-core
+   sudo dnf config-manager --add-repo https://rpm.releases.hashicorp.com/fedora/hashicorp.repo
+   return
+ fi
  if [[ -e /etc/apt/sources.list.d/hashicorp.list ]]; then
    echo "Hashicorp repo already added"
    return
@@ -41,14 +48,26 @@ function lsp_install() {
   fi
   if is_linux; then
     add_hashicorp_repo
-    sudo apt install terraform-ls
+    if is_fedora; then
+      sudo dnf install -y terraform-ls
+    else
+      sudo apt install terraform-ls
+    fi
   fi
   cargo install taplo-cli --locked --features lsp
   sudo npm i -g typescript typescript-language-server
   sudo npm i -g yaml-language-server@next
 }
 
-function docker_linux_install() {
+  if is_fedora; then
+    sudo dnf -y install dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+    sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    sudo systemctl start docker
+    sudo usermod -aG docker "$USER"
+    return
+  fi
+
   dist=""
   if is_debian; then
     dist="debian"
@@ -83,6 +102,19 @@ function docker_linux_install() {
 
 gcloud_linux_install() {
   if command -v gcloud; then
+    return
+  fi
+  if is_fedora; then
+    sudo tee -a /etc/yum.repos.d/google-cloud-sdk.repo << EOM
+[google-cloud-cli]
+name=Google Cloud CLI
+baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-x86_64
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
+EOM
+    sudo dnf install -y google-cloud-cli
     return
   fi
   curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
@@ -127,6 +159,18 @@ function is_ubuntu() {
 function is_jammy() {
   uname -a |grep -i jammy > /dev/null 2>&1
   return $?
+}
+
+function is_fedora() {
+  if [[ -f /etc/fedora-release ]]; then
+    return 0
+  fi
+  if [[ -f /etc/os-release ]]; then
+     if grep -q "ID=fedora" /etc/os-release; then
+       return 0
+     fi
+  fi
+  return 1
 }
 
 function is_arm_linx() {
@@ -188,6 +232,13 @@ install_lazygit() {
     return
   fi
 
+  if is_fedora; then
+    sudo dnf install -y dnf-plugins-core
+    sudo dnf copr enable atim/lazygit -y
+    sudo dnf install -y lazygit
+    return
+  fi
+
   if is_debian; then
     local major
     local codename
@@ -242,6 +293,11 @@ install_lazyjournal() {
     sudo apt install /tmp/lazyjournal.deb
     return
   fi
+  if is_fedora; then
+    # Use the generic install script for now as there is no official rpm in the release assests logic above might be complex to adapt to rpm if it exists
+    # Or just fall through
+    :
+  fi
 
   # For other systems, use the install script
   curl -sS https://raw.githubusercontent.com/Lifailon/lazyjournal/main/install.sh | bash
@@ -261,7 +317,11 @@ for com in ${required_commands}; do
   else
     echo "${com} is required"
     if is_linux; then
-      if ! sudo apt install -y "${com}"; then
+      if is_fedora; then
+        if ! sudo dnf install -y "${com}"; then
+          exit 1
+        fi
+      elif ! sudo apt install -y "${com}"; then
         exit 1
       fi
     elif is_darwin; then
@@ -283,7 +343,11 @@ for pkg in ${required_packages}; do
         continue
       fi
     fi
-    if ! sudo apt install -y "${pkg}"; then
+    if is_fedora; then
+       if ! sudo dnf install -y "${pkg}"; then
+         exit 1
+       fi
+    elif ! sudo apt install -y "${pkg}"; then
       exit 1
     fi
   elif is_darwin; then
@@ -302,7 +366,11 @@ for com in ${linux_required_commands}; do
   else
     echo "${com} is required"
     if is_linux; then
-      if ! sudo apt install -y ${com}; then
+      if is_fedora; then
+        if ! sudo dnf install -y ${com}; then
+          exit 1
+        fi
+      elif ! sudo apt install -y ${com}; then
         exit 1
       fi
     fi
@@ -311,23 +379,35 @@ done
 
 # Linux required packages
 if is_linux; then
-  sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
-  sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
-  sudo apt-get update
-  sudo apt-get -y build-dep python3
+  if ! is_fedora; then
+    sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+    sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+    sudo apt-get update
+    sudo apt-get -y build-dep python3
+  fi
 
-  for pkg in ${linux_required_packages}; do
-    if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
-      echo "${pkg} available"
-    else
-      echo "${pkg} is required"
-      if ! sudo apt install -y "${pkg}"; then
-        exit 1
+  if is_fedora; then
+     for pkg in ${fedora_dev_packages}; do
+       if ! sudo dnf install -y "${pkg}"; then
+         exit 1
+       fi
+     done
+  else
+    for pkg in ${linux_required_packages}; do
+      if dpkg -l |grep -i "${pkg}" >/dev/null 2>&1; then
+        echo "${pkg} available"
+      else
+        echo "${pkg} is required"
+        if ! sudo apt install -y "${pkg}"; then
+          exit 1
+        fi
       fi
-    fi
-  done
+    done
+  fi
 
-  sudo locale-gen en_US.UTF-8
+  if ! is_fedora; then
+    sudo locale-gen en_US.UTF-8
+  fi
 
   if is_debian; then
     for pkg in ${debian_required_packages}; do
