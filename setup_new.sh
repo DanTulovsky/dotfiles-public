@@ -462,7 +462,7 @@ fi
 
 echo "Installing cargo..."
 if ! command -v cargo; then
-  curl https://sh.rustup.rs -sSf | sh
+  curl https://sh.rustup.rs -sSf | sh -s -- -y
   # rustup automatically detects fish and adds to ~/.config/fish/config.fish
   # Add cargo to PATH for current session
   export PATH="$HOME/.cargo/bin:$PATH"
