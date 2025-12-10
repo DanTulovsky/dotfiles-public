@@ -398,7 +398,9 @@ if is_linux; then
       done
   else
       # Debian/Ubuntu logic
-      sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+      if [ -f /etc/apt/sources.list ]; then
+        sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+      fi
       if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
          sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
       fi
