@@ -7,7 +7,172 @@
 
 set -e
 set -o pipefail
-shopt -s expand_aliases
+function install_homebrew() {
+    # Initial Mac Setup
+    if is_darwin; then
+      if ! command -v brew > /dev/null 2>&1; then
+        log_info "Installing Homebrew..."
+        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        brew install curl wget git fzf keychain tmux vim fish direnv
+      fi
+    fi
+
+    # Install Homebrew on Linux if missing
+    if ! command -v brew >/dev/null 2>&1; then
+         if is_linux; then
+            log_info "Installing Homebrew for Linux..."
+             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+             eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+         fi
+    fi
+}
+
+function install_core_tools() {
+    # --- Install Required Commands ---
+    for cmd in "${REQUIRED_COMMANDS[@]}"; do
+        ensure_command "${cmd}"
+    done
+}
+
+function install_core_packages() {
+    # --- Install Required Packages ---
+    for pkg in "${REQUIRED_PACKAGES[@]}"; do
+        if is_fedora && [[ "${pkg}" == "golang" ]]; then
+             install_package "golang"
+             continue
+        fi
+
+        if is_linux && [[ "${pkg}" == "golang" ]]; then
+            if is_jammy; then
+                sudo apt install snapd
+                sudo snap install --classic --channel=1.22/stable go
+                continue
+            fi
+        fi
+
+        install_package "${pkg}"
+    done
+}
+
+function install_linux_basics() {
+    # --- Linux Specifics ---
+    if is_linux; then
+        for cmd in "${LINUX_REQUIRED_COMMANDS[@]}"; do
+             if is_fedora && [[ "${cmd}" == "ssh-askpass" ]]; then
+                 install_package "openssh-askpass"
+             else
+                 ensure_command "${cmd}"
+             fi
+        done
+
+        system_update_linux # Build deps etc
+
+        if is_fedora; then
+            for pkg in "${FEDORA_REQUIRED_PACKAGES[@]}"; do
+                install_package "${pkg}"
+            done
+        elif is_debian || is_ubuntu; then
+             for pkg in "${UBUNTU_COMMON_PACKAGES[@]}"; do
+                 install_package "${pkg}"
+             done
+             sudo locale-gen en_US.UTF-8
+
+             if is_debian; then
+                 for pkg in "${DEBIAN_REQUIRED_PACKAGES[@]}"; do
+                     install_package "${pkg}"
+                 done
+                 # Snaps
+                 for pkg in "${SNAP_REQUIRED_PACKAGES[@]}"; do
+                    sudo snap install "${pkg}" --classic
+                 done
+             fi
+        fi
+
+        # Configure Homebrew apps on Linux if needed
+        # (Original script had checks for ~/.homebrew_apps on Darwin mainly)
+    fi
+}
+
+function setup_shell() {
+    # --- Shell Setup ---
+    # Set fish as default (Note: This might exit the script if it changes shell!)
+    if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
+      log_info "Setting default shell to fish..."
+      if command -v fish >/dev/null 2>&1; then
+        if is_linux; then
+          sudo usermod -s "$(which fish)" "$USER"
+        elif is_darwin; then
+          sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
+        fi
+        log_warn "Default shell changed to fish. Please logout and login again for this to take effect."
+        # Continue execution
+      else
+        log_error "fish is not installed"
+        exit 1
+      fi
+    else
+      log_success "fish is already the default shell"
+    fi
+}
+
+function install_rust() {
+    # --- Cargo / Rust ---
+    log_info "Instaling/updating Rust..."
+    if ! command -v cargo; then
+      curl https://sh.rustup.rs -sSf | sh -s -- -y
+      export PATH="$HOME/.cargo/bin:$PATH"
+    fi
+}
+
+function install_dust() {
+    log_info "Installing dust..."
+    if ! command -v dust >/dev/null 2>&1; then
+      cargo install du-dust
+    else
+      log_success "dust already installed"
+    fi
+}
+
+function setup_ssh_keys() {
+    # --- SSH Keys ---
+    local git_identity_file="${HOME}/.ssh/identity.git"
+    if [ ! -f "${git_identity_file}" ]; then
+      log_info "Generating ssh key for github into ${git_identity_file}"
+      ssh-keygen -f "${git_identity_file}"
+      echo "Add this key to github before continuing: https://github.com/settings/keys"
+      echo ""
+      cat "${git_identity_file}".pub
+      echo ""
+      read -rp "Press Enter once you have added the key to GitHub to continue..."
+    fi
+}
+
+function setup_dotfiles() {
+    # --- Dotfiles Configuration ---
+    log_info "Configuring dotfiles..."
+
+    if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
+      echo ".cfg" >> "$HOME/.gitignore"
+    fi
+
+    log_info "Starting ssh agent..."
+    keychain --nogui ~/.ssh/identity.git
+    # shellcheck disable=SC1090
+    if [ -f ~/.keychain/"$(hostname)"-sh ]; then
+        source ~/.keychain/"$(hostname)"-sh
+    fi
+
+    # helper for config command
+    function config() {
+      git --git-dir="$HOME/.cfg/" --work-tree="$HOME" "$@"
+    }
+
+    log_info "Cloning dotfiles..."
+    rm -rf "$HOME"/.cfg
+    git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
+    config reset --hard HEAD
+    config config --local status.showUntrackedFiles no
+}
 
 # ==============================================================================
 # Constants & Configuration
@@ -623,157 +788,20 @@ function install_orbstack() {
 function main() {
     log_info "Starting Setup..."
 
-    # Initial Mac Setup
-    if is_darwin; then
-      if ! command -v brew > /dev/null 2>&1; then
-        log_info "Installing Homebrew..."
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        brew install curl wget git fzf keychain tmux vim fish direnv
-      fi
-    fi
+    install_homebrew
+    install_core_tools
+    install_core_packages
+    install_linux_basics
 
-    # Install Homebrew on Linux if missing
-    if ! command -v brew >/dev/null 2>&1; then
-         if is_linux; then
-            log_info "Installing Homebrew for Linux..."
-             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-             eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-         fi
-    fi
-
-    # --- Install Required Commands ---
-    for cmd in "${REQUIRED_COMMANDS[@]}"; do
-        ensure_command "${cmd}"
-    done
-
-    # --- Install Required Packages ---
-    for pkg in "${REQUIRED_PACKAGES[@]}"; do
-        if is_fedora && [[ "${pkg}" == "golang" ]]; then
-             install_package "golang"
-             continue
-        fi
-
-        if is_linux && [[ "${pkg}" == "golang" ]]; then
-            if is_jammy; then
-                sudo apt install snapd
-                sudo snap install --classic --channel=1.22/stable go
-                continue
-            fi
-        fi
-
-        install_package "${pkg}"
-    done
-
-    # --- Linux Specifics ---
-    if is_linux; then
-        for cmd in "${LINUX_REQUIRED_COMMANDS[@]}"; do
-             if is_fedora && [[ "${cmd}" == "ssh-askpass" ]]; then
-                 install_package "openssh-askpass"
-             else
-                 ensure_command "${cmd}"
-             fi
-        done
-
-        system_update_linux # Build deps etc
-
-        if is_fedora; then
-            for pkg in "${FEDORA_REQUIRED_PACKAGES[@]}"; do
-                install_package "${pkg}"
-            done
-        elif is_debian || is_ubuntu; then
-             for pkg in "${UBUNTU_COMMON_PACKAGES[@]}"; do
-                 install_package "${pkg}"
-             done
-             sudo locale-gen en_US.UTF-8
-
-             if is_debian; then
-                 for pkg in "${DEBIAN_REQUIRED_PACKAGES[@]}"; do
-                     install_package "${pkg}"
-                 done
-                 # Snaps
-                 for pkg in "${SNAP_REQUIRED_PACKAGES[@]}"; do
-                    sudo snap install "${pkg}" --classic
-                 done
-             fi
-        fi
-
-        # Configure Homebrew apps on Linux if needed
-        # (Original script had checks for ~/.homebrew_apps on Darwin mainly)
-    fi
-
-    # --- Custom Installers ---
     install_lazygit
     install_lazyjournal
 
-    # --- Shell Setup ---
-    # Set fish as default (Note: This might exit the script if it changes shell!)
-    if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
-      log_info "Setting default shell to fish..."
-      if command -v fish >/dev/null 2>&1; then
-        if is_linux; then
-          sudo usermod -s "$(which fish)" "$USER"
-        elif is_darwin; then
-          sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
-        fi
-        log_warn "Default shell changed to fish. Please logout and login again for this to take effect."
-        # Continue execution
-      else
-        log_error "fish is not installed"
-        exit 1
-      fi
-    else
-      log_success "fish is already the default shell"
-    fi
+    setup_shell
+    install_rust
+    install_dust
 
-    # --- Cargo / Rust ---
-    log_info "Instaling/updating Rust..."
-    if ! command -v cargo; then
-      curl https://sh.rustup.rs -sSf | sh -s -- -y
-      export PATH="$HOME/.cargo/bin:$PATH"
-    fi
-
-    log_info "Installing dust..."
-    if ! command -v dust >/dev/null 2>&1; then
-      cargo install du-dust
-    else
-      log_success "dust already installed"
-    fi
-
-    # --- SSH Keys ---
-    local git_identity_file="${HOME}/.ssh/identity.git"
-    if [ ! -f "${git_identity_file}" ]; then
-      log_info "Generating ssh key for github into ${git_identity_file}"
-      ssh-keygen -f "${git_identity_file}"
-      echo "Add this key to github before continuing: https://github.com/settings/keys"
-      echo ""
-      cat "${git_identity_file}".pub
-      echo ""
-      read -rp "Press Enter once you have added the key to GitHub to continue..."
-    fi
-
-    # --- Dotfiles Configuration ---
-    log_info "Configuring dotfiles..."
-
-    if ! grep ".cfg" "$HOME/.gitignore" >/dev/null 2>&1; then
-      echo ".cfg" >> "$HOME/.gitignore"
-    fi
-
-    log_info "Starting ssh agent..."
-    keychain --nogui ~/.ssh/identity.git
-    # shellcheck disable=SC1090
-    if [ -f ~/.keychain/"$(hostname)"-sh ]; then
-        source ~/.keychain/"$(hostname)"-sh
-    fi
-
-    function config() {
-      git --git-dir="$HOME/.cfg/" --work-tree="$HOME" "$@"
-    }
-
-    log_info "Cloning dotfiles..."
-    rm -rf "$HOME"/.cfg
-    git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg
-    config reset --hard HEAD
-    config config --local status.showUntrackedFiles no
+    setup_ssh_keys
+    setup_dotfiles
 
     install_pyenv
     install_starship
