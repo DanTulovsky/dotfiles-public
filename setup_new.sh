@@ -13,7 +13,7 @@ function install_homebrew() {
       if ! command -v brew > /dev/null 2>&1; then
         log_info "Installing Homebrew..."
         /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-        brew install curl wget git fzf keychain tmux vim fish direnv
+    execute brew install curl wget git fzf keychain tmux vim fish direnv
       fi
     fi
 
@@ -44,8 +44,8 @@ function install_core_packages() {
 
         if is_linux && [[ "${pkg}" == "golang" ]]; then
             if is_jammy; then
-                sudo apt install snapd
-                sudo snap install --classic --channel=1.22/stable go
+                execute sudo apt install snapd
+                execute sudo snap install --classic --channel=1.22/stable go
                 continue
             fi
         fi
@@ -127,7 +127,7 @@ function install_rust() {
 function install_dust() {
     log_info "Installing dust..."
     if ! command -v dust >/dev/null 2>&1; then
-      cargo install du-dust
+      execute cargo install du-dust
     else
       log_success "dust already installed"
     fi
@@ -282,6 +282,25 @@ function log_error() {
 }
 
 # ==============================================================================
+# Execution Helpers
+# ==============================================================================
+
+function execute() {
+  local temp_log
+  temp_log=$(mktemp)
+
+  if "$@" > "$temp_log" 2>&1; then
+    rm "$temp_log"
+    return 0
+  else
+    log_error "Command failed: $*"
+    cat "$temp_log" >&2
+    rm "$temp_log"
+    return 1
+  fi
+}
+
+# ==============================================================================
 # OS Detection Functions
 # ==============================================================================
 
@@ -372,29 +391,29 @@ function install_package() {
 
   if is_fedora; then
     log_info "Installing ${fedora_package} via dnf..."
-    if ! sudo dnf install -y "${fedora_package}"; then
+    if ! execute sudo dnf install -y "${fedora_package}"; then
       log_warn "dnf failed to install ${fedora_package}"
       if command -v brew >/dev/null 2>&1; then
         log_info "Trying brew install ${package}..."
-        brew install "${package}"
+        execute brew install "${package}"
         return $?
       fi
       return 1
     fi
   elif is_linux; then
     log_info "Installing ${package} via apt..."
-    if ! sudo apt install -y "${package}"; then
+    if ! execute sudo apt install -y "${package}"; then
       log_warn "apt failed to install ${package}"
       if command -v brew >/dev/null 2>&1; then
         log_info "Trying brew install ${package}..."
-        brew install "${package}"
+        execute brew install "${package}"
         return $?
       fi
       return 1
     fi
   elif is_darwin; then
     log_info "Installing ${package} via brew..."
-    if ! brew install "${package}"; then
+    if ! execute brew install "${package}"; then
       log_error "Failed to install ${package}"
       return 1
     fi
@@ -426,8 +445,8 @@ function lsp_install() {
   log_info "Installing Language Servers..."
 
   # Node-based LSPs
-  sudo npm install -g n
-  sudo n stable
+  execute sudo npm install -g n
+  execute sudo n stable
 
   local npm_lsps=(
     vscode-langservers-extracted
@@ -441,24 +460,24 @@ function lsp_install() {
   )
 
   for lsp in "${npm_lsps[@]}"; do
-      sudo npm i -g "${lsp}"
+      execute sudo npm i -g "${lsp}"
   done
 
   # Go tools
-  go install golang.org/x/tools/gopls@latest
-  go install github.com/go-delve/delve/cmd/dlv@latest
-  go install golang.org/x/tools/cmd/goimports@latest
+  execute go install golang.org/x/tools/gopls@latest
+  execute go install github.com/go-delve/delve/cmd/dlv@latest
+  execute go install golang.org/x/tools/cmd/goimports@latest
 
   # Terraform
   if command -v brew >/dev/null 2>&1; then
-      brew install hashicorp/tap/terraform-ls
+      execute brew install hashicorp/tap/terraform-ls
   else
       log_warn "brew not found, skipping terraform-ls. Install manually or enable brew."
   fi
 
   # Taplo (TOML)
   if command -v cargo >/dev/null 2>&1; then
-    cargo install taplo-cli --locked --features lsp
+    execute cargo install taplo-cli --locked --features lsp
   fi
 }
 
@@ -638,7 +657,7 @@ function install_cargo_binstall() {
   if ! command -v cargo-binstall >/dev/null 2>&1; then
     log_info "Installing cargo-binstall..."
     if command -v brew >/dev/null 2>&1; then
-        brew install cargo-binstall
+        execute brew install cargo-binstall
     else
         log_warn "Manual install of cargo-binstall required on Linux if brew is missing"
         # Optional: cargo install cargo-binstall
@@ -668,7 +687,7 @@ function install_sk() {
   if ! command -v sk >/dev/null 2>&1; then
     log_info "Installing sk..."
     if command -v brew >/dev/null 2>&1; then
-      brew install sk
+      execute brew install sk
     else
       log_warn "brew not found, cannot install sk"
     fi
@@ -681,7 +700,7 @@ function install_tmux() {
   if ! command -v tmux >/dev/null 2>&1; then
     log_info "Installing tmux..."
     if command -v brew >/dev/null 2>&1; then
-      brew install tmux
+      execute brew install tmux
     else
       log_warn "brew not found. Fallback to system package implementation: install_package"
       install_package "tmux"
@@ -694,7 +713,7 @@ function install_tmux() {
 function install_zellij() {
   if ! command -v zellij >/dev/null 2>&1; then
       log_info "Installing zellij..."
-      cargo binstall -y zellij
+      execute cargo binstall -y zellij
   else
       log_success "zellij already installed"
   fi
@@ -703,7 +722,7 @@ function install_zellij() {
 function install_starship() {
   log_info "Installing starship..."
   if is_darwin; then
-    brew install starship
+    execute brew install starship
   else
     if command -v starship >/dev/null 2>&1; then
       log_success "starship already installed"
@@ -725,7 +744,7 @@ function install_atuin() {
 function install_pyenv() {
   log_info "Installing pyenv..."
   if is_darwin; then
-    brew install pyenv pyenv-virtualenv
+    execute brew install pyenv pyenv-virtualenv
   else
     if [[ -d ~/.pyenv ]]; then
       log_success "pyenv already installed"
@@ -741,7 +760,7 @@ function install_python_version() {
   [[ -d $PYENV_ROOT/bin ]] && export PATH="$PYENV_ROOT/bin:$PATH"
   if command -v pyenv >/dev/null 2>&1; then
       eval "$(pyenv init -)"
-      pyenv install --skip-existing 3.12
+      execute pyenv install --skip-existing 3.12
   else
       log_error "pyenv not found, skipping python 3.12 install"
   fi
@@ -749,7 +768,7 @@ function install_python_version() {
 
 function install_fonts_and_ui() {
   if is_darwin; then
-    brew install font-meslo-lg-nerd-font
+    execute brew install font-meslo-lg-nerd-font
 
     # VSCode settings
     defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
@@ -767,7 +786,7 @@ function install_tpm() {
   log_info "Installing tmux plugin manager..."
   mkdir -p "$HOME/.tmux/plugins"
   if [ ! -d "$HOME/.tmux/plugins/tpm" ]; then
-    git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
+    execute git clone https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm
   else
     log_success "tmux plugin manager already installed"
   fi
@@ -776,7 +795,7 @@ function install_tpm() {
 function install_orbstack() {
   if is_darwin; then
       if ! command -v orb; then
-        brew install orbstack
+        execute brew install orbstack
       fi
   fi
 }
@@ -787,6 +806,13 @@ function install_orbstack() {
 
 function main() {
     log_info "Starting Setup..."
+
+    # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
+    if command -v sudo >/dev/null 2>&1; then
+        sudo -v
+        # Keep-alive: update existing sudo time stamp if set, otherwise do nothing.
+        while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+    fi
 
     install_homebrew
     install_core_tools
