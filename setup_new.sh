@@ -249,6 +249,7 @@ function install_lazygit() {
   fi
 
   if is_fedora; then
+    sudo dnf -y copr enable dejan/lazygit
     sudo dnf install -y lazygit
     return
   fi
