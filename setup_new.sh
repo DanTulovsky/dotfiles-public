@@ -529,15 +529,15 @@ else
   if command -v starship >/dev/null 2>&1; then
     echo "starship already installed"
   else
-    curl -sS https://starship.rs/install.sh | sh
+    curl -sS https://starship.rs/install.sh | sh -s -- -y
   fi
 fi
 
 echo "Installing atuin..."
 if command -v atuin >/dev/null 2>&1; then
   echo "atuin already installed"
-  else
-  curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
+else
+  curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh -s -- -y
 fi
 
 echo "Installing python 3.12..."
