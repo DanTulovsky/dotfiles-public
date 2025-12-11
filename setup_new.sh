@@ -89,11 +89,9 @@ function install_linux_basics() {
     # --- Linux Specifics ---
     if is_linux; then
         for cmd in "${LINUX_REQUIRED_COMMANDS[@]}"; do
-             if is_fedora && [[ "${cmd}" == "ssh-askpass" ]]; then
-                 install_package "openssh-askpass"
-             else
-                 ensure_command "${cmd}"
-             fi
+             local package
+             package=$(get_linux_package_name "${cmd}")
+             ensure_command "${cmd}" "${package}"
         done
 
         system_update_linux # Build deps etc
@@ -279,6 +277,10 @@ FEDORA_REQUIRED_PACKAGES=(
   bind-utils
   openssh-askpass
   dnf-plugins-core
+)
+
+FEDORA_PACKAGE_OVERRIDES=(
+  "ssh-askpass:openssh-askpass"
 )
 
 # Debian/Ubuntu Specific
@@ -513,6 +515,23 @@ function get_os_release_codename() {
 # Package Management Helper Functions
 # ==============================================================================
 
+function get_linux_package_name() {
+  local cmd="$1"
+  local package="$cmd"
+
+  if is_fedora; then
+      for override in "${FEDORA_PACKAGE_OVERRIDES[@]}"; do
+          local key="${override%%:*}"
+          local value="${override#*:}"
+          if [[ "$cmd" == "$key" ]]; then
+              package="$value"
+              break
+          fi
+      done
+  fi
+  echo "$package"
+}
+
 function is_package_installed() {
   local package="$1"
   if is_darwin; then
@@ -591,18 +610,10 @@ function ensure_command() {
   local package="${2:-$cmd}" # Package name might differ from command name
 
   if command -v "${cmd}" >/dev/null 2>&1; then
-    # log_success "${cmd} is already available" - assume caller handles this or silent check?
-    # actually ensure_command loop in install_core_tools calls this.
-    # user wants concise.
-    # check if we should log at all.
-    # install_core_tools loop just calls ensure_command.
-    # let's modify ensure_command to be consistent.
     log_task_start "Checking ${cmd}"
     log_success
   else
-    log_task_start "Installing ${cmd}"
     install_package "${package}"
-    log_success
   fi
 }
 
@@ -888,18 +899,35 @@ function install_cargo_binstall() {
 }
 
 function system_update_linux() {
+  log_task_start "Updating system packages"
   if is_fedora; then
-      sudo dnf group install -y "development-tools"
-      sudo dnf update -y
+      if execute sudo dnf group install -y "development-tools" \
+        && execute sudo dnf update -y; then
+         log_success
+      else
+         log_warn "System update failed (non-critical?)"
+      fi
   elif is_debian || is_ubuntu; then
       if [ -f /etc/apt/sources.list ]; then
-        sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list
+        if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
+            :
+        else
+            log_warn "Failed to enable deb-src in sources.list"
+        fi
       fi
       if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-         sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources
+         if sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources; then
+            :
+         else
+            log_warn "Failed to enable deb-src in ubuntu.sources"
+         fi
       fi
-      execute sudo apt-get update
-      execute sudo apt-get -y build-dep python3
+      if execute sudo apt-get update \
+        && execute sudo apt-get -y build-dep python3; then
+          log_success
+      else
+          log_warn "System update/build-dep failed (check logs)"
+      fi
   fi
 }
 
