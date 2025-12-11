@@ -213,7 +213,7 @@ function setup_dotfiles() {
     log_success
 
     log_info "Starting ssh agent..."
-    keychain --nogui ~/.ssh/identity.git
+    execute keychain --nogui ~/.ssh/identity.git
     # shellcheck disable=SC1090
     if [ -f ~/.keychain/"$(hostname)"-sh ]; then
         source ~/.keychain/"$(hostname)"-sh
