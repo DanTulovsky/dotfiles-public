@@ -736,7 +736,6 @@ function docker_linux_install() {
     true
   fi
 
-  log_task_start "Installing Docker packages"
   if execute sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
     log_success
   else
