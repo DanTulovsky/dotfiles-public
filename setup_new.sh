@@ -9,6 +9,11 @@ set -e
 set -o pipefail
 set -E  # Make ERR trap inherit into functions
 
+# Global variables to track the actual failing command
+FAILED_COMMAND=""
+FAILED_COMMAND_OUTPUT=""
+FAILED_COMMAND_LINE=""
+
 # Trap to ensure errors are visible even when set -e exits the script
 trap 'last_command=$BASH_COMMAND' DEBUG
 trap 'catch_error $?' ERR
@@ -19,8 +24,25 @@ function catch_error() {
   echo "========================================" >&2
   echo "ERROR: Script failed!" >&2
   echo "Exit code: $exit_code" >&2
-  echo "Failed command: $last_command" >&2
-  echo "Line: ${BASH_LINENO[0]}" >&2
+
+  # Show the actual failing command if we captured it
+  if [[ -n "$FAILED_COMMAND" ]]; then
+    echo "Failed command: $FAILED_COMMAND" >&2
+    if [[ -n "$FAILED_COMMAND_LINE" ]]; then
+      echo "Line: $FAILED_COMMAND_LINE" >&2
+    fi
+    if [[ -n "$FAILED_COMMAND_OUTPUT" ]]; then
+      echo "" >&2
+      echo "--- Error Output ---" >&2
+      echo "$FAILED_COMMAND_OUTPUT" >&2
+      echo "--- End Error Output ---" >&2
+    fi
+  else
+    # Fallback to default behavior if we didn't capture the command
+    echo "Failed command: $last_command" >&2
+    echo "Line: ${BASH_LINENO[0]}" >&2
+  fi
+
   echo "========================================" >&2
   # Flush output to ensure visibility when piped
   exec 1>&-
@@ -471,6 +493,15 @@ function execute() {
 
     # Print newline for error output
     echo ""
+
+    # Capture the command details for the error handler
+    FAILED_COMMAND="$*"
+    FAILED_COMMAND_LINE="${BASH_LINENO[1]}"
+    if [[ -f "$temp_log" ]]; then
+      FAILED_COMMAND_OUTPUT="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
+    else
+      FAILED_COMMAND_OUTPUT="Error log file not found"
+    fi
 
     # Always print errors unless explicitly silenced AND not in verbose mode
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
@@ -947,15 +978,33 @@ function install_lazygit() {
   fi
 
   tmpdir="$(mktemp -d)"
-  (
+  local lazygit_error_log
+  lazygit_error_log="$(mktemp)"
+
+  if (
     set -e
     cd "${tmpdir}"
     LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*')
     curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
     tar xf lazygit.tar.gz lazygit
     sudo install lazygit -D -t /usr/local/bin/
-  )
-  rm -rf "${tmpdir}"
+  ) > "$lazygit_error_log" 2>&1; then
+    rm -f "$lazygit_error_log"
+    rm -rf "${tmpdir}"
+    log_success
+  else
+    local exit_code=$?
+    FAILED_COMMAND="lazygit installation (curl/tar/install in subshell)"
+    FAILED_COMMAND_LINE="${BASH_LINENO[0]}"
+    FAILED_COMMAND_OUTPUT="$(cat "$lazygit_error_log" 2>/dev/null || echo "Could not read error log")"
+    log_error "lazygit installation failed with exit code $exit_code"
+    echo "--- Error Output ---" >&2
+    cat "$lazygit_error_log" >&2
+    echo "--- End Error Output ---" >&2
+    rm -f "$lazygit_error_log"
+    rm -rf "${tmpdir}"
+    log_task_fail
+  fi
 }
 
 function install_lazyjournal() {
