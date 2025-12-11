@@ -2,7 +2,7 @@
 #
 # setup_new.sh
 #
-# Sets up a new machine (macOS, Linux - Debian/Ubuntu/Fedora) with required tools and configurations.
+# Sets up a new machine (macOS, Linux - Debian/Ubuntu/Pop!_OS/Fedora) with required tools and configurations.
 #
 
 set -e
@@ -498,13 +498,44 @@ function is_debian() {
 }
 
 function is_ubuntu() {
+  # Pop!_OS is Ubuntu-based, so treat it as Ubuntu
+  if is_pop_os; then
+    return 0
+  fi
   uname -a | grep -i ubuntu > /dev/null 2>&1
   return $?
 }
 
 function is_jammy() {
-  uname -a | grep -i jammy > /dev/null 2>&1
-  return $?
+  if uname -a | grep -i jammy > /dev/null 2>&1; then
+    return 0
+  fi
+  # Also check VERSION_CODENAME from /etc/os-release
+  local codename
+  codename=$(get_os_release_codename)
+  if [[ "$codename" == "jammy" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+function is_ubuntu_22_04_or_later() {
+  # Check for Ubuntu 22.04 (jammy) or later versions like 24.04 (noble)
+  # This is useful for features/packages that require Ubuntu 22.04+
+  local codename
+  codename=$(get_os_release_codename)
+  if [[ "$codename" == "jammy" ]] || [[ "$codename" == "noble" ]]; then
+    return 0
+  fi
+  return 1
+}
+
+function is_pop_os() {
+  if [ -f /etc/os-release ]; then
+    grep -qi "^ID=pop" /etc/os-release
+    return $?
+  fi
+  return 1
 }
 
 function is_fedora() {
