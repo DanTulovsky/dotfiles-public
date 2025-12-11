@@ -210,16 +210,20 @@ function setup_ssh_keys() {
             read -rp "Press Enter once you have added the key to GitHub to continue..." < /dev/tty
             echo ""
             log_info "Verifying SSH key with GitHub..."
-            if ssh -i "${git_identity_file}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+            local ssh_output
+            ssh_output=$(ssh -i "${git_identity_file}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T git@github.com 2>&1)
+            if echo "$ssh_output" | grep -qi "successfully authenticated"; then
                 log_success "SSH key verified successfully!"
                 key_verified=true
             else
                 log_error "SSH key verification failed. Please ensure you've added the key to GitHub."
                 echo ""
+                echo "SSH test output:"
+                echo "$ssh_output"
+                echo ""
                 echo "Public key (copy this to GitHub):"
                 cat "${git_identity_file}.pub"
                 echo ""
-                read -rp "Press Enter to try again, or Ctrl+C to exit..." < /dev/tty
             fi
         else
             log_warn "Cannot pause for input (no /dev/tty detected). Continuing without verification..."
@@ -385,8 +389,6 @@ function log_task_start() {
   echo -ne "\033[34m[INFO]\033[0m $*... "
 }
 
-
-
 function log_task_fail() {
   if [ -n "$1" ]; then
       echo -e "\033[31m[FAILED]\033[0m $1"
@@ -395,8 +397,6 @@ function log_task_fail() {
   fi
   exit 1
 }
-
-
 
 # ==============================================================================
 # Execution Helpers
@@ -602,7 +602,6 @@ function install_package() {
   fi
 
   if is_fedora; then
-    # log_task_start "Installing ${fedora_package} via dnf" - already started
     if ! execute sudo dnf install -y "${fedora_package}"; then
       log_task_fail
       log_warn "dnf failed to install ${fedora_package}"
@@ -620,7 +619,6 @@ function install_package() {
     fi
     log_success
   elif is_linux; then
-    # log_task_start "Installing ${package} via apt"
     if ! execute sudo apt install -y "${package}"; then
       log_task_fail
       log_warn "apt failed to install ${package}"
@@ -638,7 +636,6 @@ function install_package() {
     fi
     log_success
   elif is_darwin; then
-    # log_task_start "Installing ${package} via brew"
     if ! execute brew install "${package}"; then
       log_task_fail
       log_error "Failed to install ${package}"
