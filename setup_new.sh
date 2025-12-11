@@ -19,6 +19,21 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+function pre_install_git() {
+    # Ensure git is installed before Homebrew on Linux
+    if is_linux; then
+        if ! command -v git >/dev/null 2>&1; then
+             log_task_start "Installing git (pre-requisite)"
+             install_package "git"
+        fi
+        # Also ensure curl is present
+        if ! command -v curl >/dev/null 2>&1; then
+             install_package "curl"
+        fi
+    fi
+}
+
 function install_homebrew() {
     # Initial Mac Setup
     if is_darwin; then
@@ -1076,6 +1091,8 @@ function main() {
         while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
     fi
 
+
+    pre_install_git
     install_homebrew
     install_core_tools
     install_core_packages
