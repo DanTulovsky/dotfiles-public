@@ -180,13 +180,13 @@ function setup_ssh_keys() {
       ssh-keygen -f "${git_identity_file}"
       echo "Add this key to github before continuing: https://github.com/settings/keys"
       echo ""
-      log_info "Public key:"
-      echo "$pub_key"
-      echo ""
-      log_info "Copy the above key."
-
-      log_info "Add this key to GitHub: https://github.com/settings/ssh/new?title=${title}"
-      read -rp "Press Enter once you have added the key to GitHub to continue..."
+      echo "Public key:"
+      cat "${git_identity_file}.pub"
+      if [ -c /dev/tty ]; then
+          read -rp "Press Enter once you have added the key to GitHub to continue..." < /dev/tty
+      else
+          log_warn "Cannot pause for input (no /dev/tty detected). Continuing..."
+      fi
     fi
 }
 
@@ -347,7 +347,11 @@ function log_task_start() {
 
 
 function log_task_fail() {
-  echo -e "\033[31m[FAILED]\033[0m"
+  if [ -n "$1" ]; then
+      echo -e "\033[31m[FAILED]\033[0m $1"
+  else
+      echo -e "\033[31m[FAILED]\033[0m"
+  fi
   exit 1
 }
 
