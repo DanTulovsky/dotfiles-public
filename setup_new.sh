@@ -202,11 +202,31 @@ function setup_ssh_keys() {
       echo ""
       echo "Public key:"
       cat "${git_identity_file}.pub"
-      if [ -c /dev/tty ]; then
-          read -rp "Press Enter once you have added the key to GitHub to continue..." < /dev/tty
-      else
-          log_warn "Cannot pause for input (no /dev/tty detected). Continuing..."
-      fi
+      echo ""
+
+      # Verify SSH key with retry loop
+      local key_verified=false
+      while [ "$key_verified" = false ]; do
+        if [ -c /dev/tty ]; then
+            read -rp "Press Enter once you have added the key to GitHub to continue..." < /dev/tty
+            echo ""
+            log_info "Verifying SSH key with GitHub..."
+            if ssh -i "${git_identity_file}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T git@github.com 2>&1 | grep -q "successfully authenticated"; then
+                log_success "SSH key verified successfully!"
+                key_verified=true
+            else
+                log_error "SSH key verification failed. Please ensure you've added the key to GitHub."
+                echo ""
+                echo "Public key (copy this to GitHub):"
+                cat "${git_identity_file}.pub"
+                echo ""
+                read -rp "Press Enter to try again, or Ctrl+C to exit..." < /dev/tty
+            fi
+        else
+            log_warn "Cannot pause for input (no /dev/tty detected). Continuing without verification..."
+            key_verified=true
+        fi
+      done
     fi
 }
 
