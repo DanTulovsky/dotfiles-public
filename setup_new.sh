@@ -212,8 +212,9 @@ function setup_dotfiles() {
     # Close the "Configuring dotfiles..." incomplete line with success before starting new logs
     log_success
 
-    log_info "Starting ssh agent..."
+    log_task_start "Starting ssh agent"
     execute keychain --nogui ~/.ssh/identity.git
+    log_success
     # shellcheck disable=SC1090
     if [ -f ~/.keychain/"$(hostname)"-sh ]; then
         source ~/.keychain/"$(hostname)"-sh
@@ -225,6 +226,7 @@ function setup_dotfiles() {
     }
 
     execute rm -rf "$HOME"/.cfg
+    log_task_start "Cloning dotfiles-config"
     if GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" execute git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg; then
         execute config reset --hard HEAD
         execute config config --local status.showUntrackedFiles no
@@ -757,7 +759,7 @@ function gcloud_linux_install() {
 
   log_task_start "Installing Google Cloud SDK"
   if is_fedora; then
-    sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOM
+    sudo tee /etc/yum.repos.d/google-cloud-sdk.repo > /dev/null << EOM
 [google-cloud-cli]
 name=Google Cloud CLI
 baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el9-\$basearch
