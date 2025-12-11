@@ -141,9 +141,9 @@ function setup_shell() {
       log_info "Setting default shell to fish..."
       if command -v fish >/dev/null 2>&1; then
         if is_linux; then
-          sudo usermod -s "$(which fish)" "$USER"
+          execute sudo usermod -s "$(which fish)" "$USER"
         elif is_darwin; then
-          sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
+          execute sudo dscl . -create "/Users/$USER" UserShell "$(which fish)"
         fi
         log_warn "Default shell changed to fish. Please logout and login again for this to take effect."
         # Continue execution
