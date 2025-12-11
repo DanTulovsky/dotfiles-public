@@ -225,7 +225,7 @@ function setup_dotfiles() {
     }
 
     execute rm -rf "$HOME"/.cfg
-    if execute git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg; then
+    if GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null" execute git clone --bare git@github.com:DanTulovsky/dotfiles-config.git "$HOME"/.cfg; then
         execute config reset --hard HEAD
         execute config config --local status.showUntrackedFiles no
         log_success
