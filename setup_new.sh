@@ -693,7 +693,7 @@ function docker_linux_install() {
   log_task_start "Checking Docker installation for Linux"
   if is_fedora; then
       if execute sudo dnf -y install dnf-plugins-core \
-        && execute sudo dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo \
+        && execute sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo \
         && execute sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; then
             log_success
       else
@@ -1012,22 +1012,10 @@ function install_zellij() {
 
 function install_starship() {
   log_task_start "Installing starship"
-  if is_darwin; then
-    if execute brew install starship; then
-        log_success
-    else
-        log_task_fail
-    fi
-  else
-    if command -v starship >/dev/null 2>&1; then
+  if execute brew install starship; then
       log_success
-    else
-      if curl -sS https://starship.rs/install.sh | sh -s -- -y >/dev/null 2>&1; then
-        log_success
-      else
-        log_task_fail
-      fi
-    fi
+  else
+      log_task_fail
   fi
 }
 
