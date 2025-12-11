@@ -1278,8 +1278,21 @@ function main() {
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
         sudo -v
-        # Keep-alive: update existing sudo time stamp if set, otherwise do nothing.
-        while true; do sudo -n true; sleep 60; kill -0 "$$" || exit; done 2>/dev/null &
+        # Keep-alive: refresh sudo timestamp every 55 seconds (before default 5min expiry)
+        # Use sudo -v to actually refresh the timestamp, not just check it
+        # Run in subshell to avoid interfering with main script
+        (
+            while true; do
+                sleep 55
+                # Check if parent process is still running
+                if ! kill -0 "$$" 2>/dev/null; then
+                    exit 0
+                fi
+                # Refresh sudo timestamp (this extends it, preventing expiry)
+                # If it fails (e.g., timestamp expired), exit silently
+                sudo -v 2>/dev/null || exit 0
+            done
+        ) &
     fi
 
 
