@@ -125,7 +125,9 @@ function install_linux_basics() {
 function setup_shell() {
     # --- Shell Setup ---
     # Set fish as default (Note: This might exit the script if it changes shell!)
+    log_task_start "Checking default shell"
     if ! echo "${SHELL}" | grep fish >/dev/null 2>&1; then
+      log_success "Shell is not fish"
       log_info "Setting default shell to fish..."
       if command -v fish >/dev/null 2>&1; then
         if is_linux; then
@@ -1036,7 +1038,7 @@ function install_pyenv() {
     if [[ -d ~/.pyenv ]]; then
       log_success
     else
-      if execute curl https://pyenv.run | bash; then
+      if execute bash -c "curl https://pyenv.run | bash"; then
         log_success
       else
         log_task_fail
