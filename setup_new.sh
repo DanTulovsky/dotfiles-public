@@ -197,7 +197,7 @@ function setup_ssh_keys() {
     local git_identity_file="${HOME}/.ssh/identity.git"
     if [ ! -f "${git_identity_file}" ]; then
       log_info "Generating ssh key for github into ${git_identity_file}"
-      ssh-keygen -f "${git_identity_file}"
+      ssh-keygen -t ed25519 -f "${git_identity_file}" -N "" -q
       echo "Add this key to github before continuing: https://github.com/settings/keys"
       echo ""
       cat "${git_identity_file}.pub"
