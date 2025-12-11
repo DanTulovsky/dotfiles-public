@@ -38,7 +38,12 @@ function install_homebrew() {
     if is_darwin; then
       if ! command -v brew > /dev/null 2>&1; then
         log_task_start "Installing Homebrew"
-        /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+        if execute /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+            log_success
+        else
+            log_task_fail
+        fi
+        log_task_start "Installing Homebrew packages"
         if execute brew install curl wget git fzf keychain tmux vim fish direnv; then
             log_success
         else
@@ -51,9 +56,12 @@ function install_homebrew() {
     if ! command -v brew >/dev/null 2>&1; then
          if is_linux; then
             log_task_start "Installing Homebrew for Linux"
-             NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-             eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-             log_success
+            if NONINTERACTIVE=1 execute /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+                eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+                log_success
+            else
+                log_task_fail
+            fi
          fi
     fi
 }
