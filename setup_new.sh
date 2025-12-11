@@ -200,7 +200,6 @@ function setup_ssh_keys() {
       ssh-keygen -f "${git_identity_file}"
       echo "Add this key to github before continuing: https://github.com/settings/keys"
       echo ""
-      echo "Public key:"
       cat "${git_identity_file}.pub"
       echo ""
 
