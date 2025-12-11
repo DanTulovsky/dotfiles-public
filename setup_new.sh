@@ -826,6 +826,7 @@ function krew_install_plugins() {
     execute -s tar zxf "${KREW}.tar.gz" &&
     execute -s ./"${KREW}" install krew
   ) && {
+      export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
       execute -s hash -r
       execute -s ~/.krew_plugins
   }; then
