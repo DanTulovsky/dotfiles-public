@@ -1061,7 +1061,10 @@ function system_update_linux() {
          log_warn "System update failed (non-critical?)"
       fi
   elif is_debian || is_ubuntu; then
-      execute -s sudo apt -y modernize-sources || true
+      # Skip modernize-sources on Pop!_OS as it doesn't support this command
+      if ! is_pop_os; then
+          execute -s sudo apt -y modernize-sources || true
+      fi
       if [ -f /etc/apt/sources.list ]; then
         if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
             :
