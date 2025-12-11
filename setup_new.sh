@@ -117,7 +117,12 @@ function install_linux_basics() {
                  done
                  # Snaps
                  for pkg in "${SNAP_REQUIRED_PACKAGES[@]}"; do
-                    sudo snap install "${pkg}" --classic
+                    log_task_start "Installing ${pkg} (snap)"
+                    if execute sudo snap install "${pkg}" --classic; then
+                        log_success
+                    else
+                        log_warn "Failed to install ${pkg} via snap"
+                    fi
                  done
              fi
         fi
@@ -175,7 +180,7 @@ function install_dust() {
         log_task_fail
       fi
     else
-      log_success "dust already installed"
+      log_success
     fi
 }
 
@@ -425,15 +430,17 @@ function execute() {
     echo ""
 
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
-      # Suppress error output
+      # Suppress error output only if both silent and not verbose
       if [[ "$keep_log" == "false" ]]; then
           rm "$temp_log"
       fi
       return $exit_code
     fi
 
-    log_error "Command failed: $*"
+    log_error "Command failed with exit code $exit_code: $*"
+    echo "--- Error Output ---" >&2
     cat "$temp_log" >&2
+    echo "--- End Error Output ---" >&2
 
     if [[ "$keep_log" == "false" ]]; then
         rm "$temp_log"
@@ -700,6 +707,17 @@ function docker_linux_install() {
   if command -v docker >/dev/null 2>&1; then
     log_success
     return
+  fi
+
+  # Determine distribution for Docker repo URL
+  local dist
+  if is_ubuntu; then
+    dist="ubuntu"
+  elif is_debian; then
+    dist="debian"
+  else
+    log_error "Unsupported distribution for Docker installation"
+    return 1
   fi
 
   execute sudo apt-get update
