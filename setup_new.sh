@@ -908,7 +908,11 @@ function system_update_linux() {
          log_warn "System update failed (non-critical?)"
       fi
   elif is_debian || is_ubuntu; then
-      sudo apt -y modernize-sources
+      if execute sudo apt -y modernize-sources; then
+         log_success
+      else
+         log_task_fail "Failed to modernize sources"
+      fi
       if [ -f /etc/apt/sources.list ]; then
         if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
             :
