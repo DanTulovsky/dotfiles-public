@@ -227,6 +227,7 @@ REQUIRED_COMMANDS=(
 
 # Core packages required on all systems
 REQUIRED_PACKAGES=(
+  git
   htop
   btop
   npm
