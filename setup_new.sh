@@ -211,7 +211,7 @@ function setup_ssh_keys() {
             echo ""
             log_info "Verifying SSH key with GitHub..."
             local ssh_output
-            ssh_output=$(ssh -i "${git_identity_file}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T git@github.com 2>&1)
+            ssh_output=$(ssh -i "${git_identity_file}" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -T git@github.com 2>&1 || true)
             if echo "$ssh_output" | grep -qi "successfully authenticated"; then
                 log_success "SSH key verified successfully!"
                 key_verified=true
