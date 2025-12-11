@@ -104,7 +104,12 @@ function install_linux_basics() {
              for pkg in "${UBUNTU_COMMON_PACKAGES[@]}"; do
                  install_package "${pkg}"
              done
-             sudo locale-gen en_US.UTF-8
+             log_task_start "Generating locales"
+             if execute sudo locale-gen en_US.UTF-8; then
+                 log_success
+             else
+                 log_warn "Failed to generate locales"
+             fi
 
              if is_debian; then
                  for pkg in "${DEBIAN_REQUIRED_PACKAGES[@]}"; do
@@ -752,7 +757,7 @@ EOM
     return
   fi
 
-  execute curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg
+  execute bash -c "curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg"
   echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | sudo tee -a /etc/apt/sources.list.d/google-cloud-sdk.list
   if execute sudo apt-get update && execute sudo apt-get install -y google-cloud-cli kubectl; then
     log_success
@@ -1018,7 +1023,7 @@ function install_atuin() {
   if command -v atuin >/dev/null 2>&1; then
     log_success
   else
-    if execute curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh; then
+    if execute bash -c "curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh"; then
         log_success
     else
         log_task_fail
