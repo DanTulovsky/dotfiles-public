@@ -8,6 +8,24 @@
 set -e
 set -o pipefail
 
+# Trap to ensure errors are visible even when set -e exits the script
+trap 'last_command=$BASH_COMMAND' DEBUG
+trap 'catch_error $?' ERR
+
+function catch_error() {
+  local exit_code=$1
+  echo "" >&2
+  echo "========================================" >&2
+  echo "ERROR: Script failed!" >&2
+  echo "Exit code: $exit_code" >&2
+  echo "Failed command: $last_command" >&2
+  echo "Line: ${BASH_LINENO[0]}" >&2
+  echo "========================================" >&2
+  # Flush output to ensure visibility when piped
+  exec 1>&-
+  exec 2>&-
+}
+
 VERBOSE=false
 
 # Parse arguments
@@ -447,17 +465,13 @@ function execute() {
     fi
     return 0
   else
-    # If failed, we need to print newline to break from the "Installing..." line if it was used
-    # However, execute can be used without log_task_start.
-    # But usually it is used in context.
-    # We will assume caller handles success/fail OK marker, but we need to print error details.
-
-    # Clean up the spinner line artifact if any (handled by backspaces, but cursor is at pos)
+    # Clean up the spinner line artifact
     printf "       \b\b\b\b\b\b\b"
 
-    # We need a newline because log_error expects to start on new line
+    # Print newline for error output
     echo ""
 
+    # Always print errors unless explicitly silenced AND not in verbose mode
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
       # Suppress error output only if both silent and not verbose
       if [[ "$keep_log" == "false" ]]; then
@@ -466,6 +480,7 @@ function execute() {
       return $exit_code
     fi
 
+    # Print error details BEFORE returning (important for set -e)
     log_error "Command failed with exit code $exit_code: $*"
     echo "--- Error Output ---" >&2
     cat "$temp_log" >&2
@@ -474,6 +489,8 @@ function execute() {
     if [[ "$keep_log" == "false" ]]; then
         rm "$temp_log"
     fi
+
+    # Return the exit code (may trigger set -e, but error is already printed)
     return $exit_code
   fi
 }
@@ -994,7 +1011,7 @@ function system_update_linux() {
          log_warn "System update failed (non-critical?)"
       fi
   elif is_debian || is_ubuntu; then
-      execute -s sudo apt -y modernize-sources
+      execute -s sudo apt -y modernize-sources || true
       if [ -f /etc/apt/sources.list ]; then
         if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
             :
