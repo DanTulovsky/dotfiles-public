@@ -168,8 +168,12 @@ function setup_ssh_keys() {
       ssh-keygen -f "${git_identity_file}"
       echo "Add this key to github before continuing: https://github.com/settings/keys"
       echo ""
-      cat "${git_identity_file}".pub
+      log_info "Public key:"
+      echo "$pub_key"
       echo ""
+      log_info "Copy the above key."
+
+      log_info "Add this key to GitHub: https://github.com/settings/ssh/new?title=${title}"
       read -rp "Press Enter once you have added the key to GitHub to continue..."
     fi
 }
