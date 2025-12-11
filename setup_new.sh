@@ -24,7 +24,6 @@ function pre_install_git() {
     # Ensure git is installed before Homebrew on Linux
     if is_linux; then
         if ! command -v git >/dev/null 2>&1; then
-             log_task_start "Installing git (pre-requisite)"
              install_package "git"
         fi
         # Also ensure curl is present
