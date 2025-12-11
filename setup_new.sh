@@ -51,7 +51,7 @@ function install_homebrew() {
     if ! command -v brew >/dev/null 2>&1; then
          if is_linux; then
             log_task_start "Installing Homebrew for Linux"
-             /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+             NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
              eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
              log_success
          fi
@@ -936,11 +936,7 @@ function system_update_linux() {
          log_warn "System update failed (non-critical?)"
       fi
   elif is_debian || is_ubuntu; then
-      if execute sudo apt -y modernize-sources; then
-         log_success
-      else
-         log_task_fail "Failed to modernize sources"
-      fi
+      execute sudo apt -y modernize-sources
       if [ -f /etc/apt/sources.list ]; then
         if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
             :
