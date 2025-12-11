@@ -1008,7 +1008,7 @@ function install_python_version() {
 
 function install_fonts_and_ui() {
   if is_darwin; then
-    log_task_start "Installing fonts"
+    log_task_start "Installing Meslo Nerd Fonts"
     if execute brew install font-meslo-lg-nerd-font; then
         log_success
     else
@@ -1016,14 +1016,21 @@ function install_fonts_and_ui() {
     fi
 
 
-    # VSCode settings
-    defaults write com.microsoft.VSCode ApplePressAndHoldEnabled -bool false
-    defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
-    defaults write com.vscodium ApplePressAndHoldEnabled -bool false
     defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
     defaults delete -g ApplePressAndHoldEnabled || true
   else
-    POST_INSTALL_MESSAGES+=("Install fonts manually from: https://github.com/romkatv/powerlevel10k?tab=readme-ov-file#fonts")
+    log_task_start "Installing Meslo Nerd Fonts"
+    if is_debian || is_ubuntu; then
+        execute sudo apt install -y fontconfig unzip
+    elif is_fedora; then
+        execute sudo dnf install -y fontconfig unzip
+    fi
+
+    if execute brew install font-meslo-lg-nerd-font; then
+        log_success
+    else
+        log_task_fail
+    fi
   fi
 }
 
