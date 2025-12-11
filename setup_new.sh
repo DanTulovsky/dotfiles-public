@@ -36,11 +36,19 @@ function catch_error() {
       echo "--- Error Output ---" >&2
       echo "$FAILED_COMMAND_OUTPUT" >&2
       echo "--- End Error Output ---" >&2
+    else
+      echo "" >&2
+      echo "--- Error Output ---" >&2
+      echo "(No error output captured)" >&2
+      echo "--- End Error Output ---" >&2
     fi
   else
     # Fallback to default behavior if we didn't capture the command
     echo "Failed command: $last_command" >&2
     echo "Line: ${BASH_LINENO[0]}" >&2
+    echo "" >&2
+    echo "Note: Error details were not captured. This may indicate an error occurred" >&2
+    echo "      in a subshell or before error handling was initialized." >&2
   fi
 
   echo "========================================" >&2
@@ -450,6 +458,9 @@ function execute() {
     shift
   fi
 
+  # Capture the command string early for error reporting
+  local cmd_string="$*"
+
   local temp_log
   local keep_log=false
 
@@ -482,6 +493,18 @@ function execute() {
   wait "$pid"
   local exit_code=$?
 
+  # Capture command details immediately when we detect a failure
+  # This ensures they're available even if ERR trap fires
+  if [ $exit_code -ne 0 ]; then
+    FAILED_COMMAND="$cmd_string"
+    FAILED_COMMAND_LINE="${BASH_LINENO[1]}"
+    if [[ -f "$temp_log" ]]; then
+      FAILED_COMMAND_OUTPUT="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
+    else
+      FAILED_COMMAND_OUTPUT="Error log file not found"
+    fi
+  fi
+
   if [ $exit_code -eq 0 ]; then
     if [[ "$keep_log" == "false" ]]; then
         rm "$temp_log"
@@ -494,18 +517,10 @@ function execute() {
     # Print newline for error output
     echo ""
 
-    # Capture the command details for the error handler
-    FAILED_COMMAND="$*"
-    FAILED_COMMAND_LINE="${BASH_LINENO[1]}"
-    if [[ -f "$temp_log" ]]; then
-      FAILED_COMMAND_OUTPUT="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
-    else
-      FAILED_COMMAND_OUTPUT="Error log file not found"
-    fi
-
     # Always print errors unless explicitly silenced AND not in verbose mode
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
-      # Suppress error output only if both silent and not verbose
+      # Even in silent mode, we should capture the error for the ERR trap
+      # But don't print it here
       if [[ "$keep_log" == "false" ]]; then
           rm "$temp_log"
       fi
@@ -513,9 +528,13 @@ function execute() {
     fi
 
     # Print error details BEFORE returning (important for set -e)
-    log_error "Command failed with exit code $exit_code: $*"
+    log_error "Command failed with exit code $exit_code: $cmd_string"
     echo "--- Error Output ---" >&2
-    cat "$temp_log" >&2
+    if [[ -f "$temp_log" ]]; then
+      cat "$temp_log" >&2
+    else
+      echo "Error log file not found or already removed" >&2
+    fi
     echo "--- End Error Output ---" >&2
 
     if [[ "$keep_log" == "false" ]]; then
