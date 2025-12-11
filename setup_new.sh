@@ -7,6 +7,7 @@
 
 set -e
 set -o pipefail
+set -E  # Make ERR trap inherit into functions
 
 # Trap to ensure errors are visible even when set -e exits the script
 trap 'last_command=$BASH_COMMAND' DEBUG
