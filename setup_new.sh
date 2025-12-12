@@ -152,6 +152,18 @@ function install_core_packages() {
     done
 }
 
+function install_brew_packages() {
+    # --- Install Brew Packages ---
+    for pkg in "${BREW_PACKAGES[@]}"; do
+        log_task_start "Installing ${pkg}"
+        if execute brew install "${pkg}"; then
+            log_success
+        else
+            log_warn "Failed to install ${pkg} via brew, continuing..."
+        fi
+    done
+}
+
 function install_linux_basics() {
     # --- Linux Specifics ---
     if is_linux; then
@@ -351,6 +363,38 @@ REQUIRED_PACKAGES=(
   duf
   lsd
   ripgrep
+)
+
+# Brew packages (tools installed via Homebrew)
+BREW_PACKAGES=(
+  # Development tools
+  pyenv
+  pyenv-virtualenv
+  starship
+  atuin
+  rust
+  cargo-binstall
+  sk
+  tmux
+  zellij
+  lazygit
+  lazyjournal
+
+  # Language servers
+  vscode-langservers-extracted
+  dockerfile-language-server
+  sql-language-server
+  typescript
+  typescript-language-server
+  yaml-language-server
+  gopls
+  delve
+  goimports
+  terraform-ls
+  taplo
+
+  # Fonts
+  font-meslo-lg-nerd-font
 )
 
 # Linux General
@@ -787,48 +831,21 @@ function ensure_command() {
 function lsp_install() {
   log_task_start "Installing Language Servers"
 
-  # Node-based LSPs
-  execute sudo npm install -g n
-  execute sudo n stable
-
-  local npm_lsps=(
-    vscode-langservers-extracted
-    dockerfile-language-server-nodejs
-    dot-language-server
-    graphql-language-service-cli
-    sql-language-server
-    typescript
-    typescript-language-server
-    yaml-language-server@next
-  )
-
-  for lsp in "${npm_lsps[@]}"; do
-      execute sudo npm i -g "${lsp}"
-  done
-
   # Go tools
-  execute go install golang.org/x/tools/gopls@latest
-  execute go install github.com/go-delve/delve/cmd/dlv@latest
-  execute go install golang.org/x/tools/cmd/goimports@latest
+  execute brew install vscode-langservers-extracted
+  execute brew install dockerfile-language-server
+  execute brew install sql-language-server
+  execute brew install typescript
+  execute brew install typescript-language-server
+  execute brew install yaml-language-server
+  execute brew install gopls
+  execute brew install delve
+  execute brew install goimports
+  execute brew install terraform-ls
+  execute brew install taplo
 
   # Close initial task
   log_success
-
-  if command -v brew >/dev/null 2>&1; then
-      log_task_start "Installing terraform-ls via brew"
-      if execute brew install hashicorp/tap/terraform-ls; then
-        log_success
-      else
-        log_task_fail
-      fi
-  else
-      log_warn "brew not found, skipping terraform-ls. Install manually or enable brew."
-  fi
-
-  # Taplo (TOML)
-  if command -v cargo >/dev/null 2>&1; then
-    execute cargo install taplo-cli --locked --features lsp
-  fi
 }
 
 function docker_linux_install() {
@@ -960,150 +977,29 @@ function krew_install_plugins() {
 }
 
 function install_lazygit() {
-  if command -v lazygit >/dev/null 2>&1; then
-    log_task_start "Checking lazygit"
-    log_success
-    return
-  fi
-
   log_task_start "Installing lazygit"
-
-  if is_darwin; then
-    if execute brew install lazygit; then
-        log_success
-    else
-        log_task_fail
-    fi
-    return
-  fi
-
-  if is_fedora; then
-    execute sudo dnf -y copr enable dejan/lazygit
-    if execute sudo dnf install -y lazygit; then
-        log_success
-    else
-        log_task_fail
-    fi
-    return
-  fi
-
-  if ! is_linux; then
-    log_warn "Skipping lazygit install: unsupported OS"
-    return
-  fi
-
-  if is_debian; then
-    local major
-    local codename
-    major="$(get_os_release_major_version)"
-    codename="$(get_os_release_codename)"
-    if [[ ${codename} == "sid" ]]; then
-      execute sudo apt install -y lazygit
-      return
-    fi
-    if [[ -n ${major} ]] && (( major >= 13 )); then
-      execute sudo apt install -y lazygit
-      return
-    fi
-  elif is_ubuntu; then
-    # Skip apt install on Pop!_OS as lazygit is not available in their repos
-    if is_pop_os; then
-      # Fall through to manual installation
-      :
-    else
-      local major
-      local minor
-      major="$(get_os_release_major_version)"
-      minor="$(get_os_release_minor_version)"
-      if [[ -n ${major} && -n ${minor} ]] && { (( major > 25 )) || (( major == 25 && minor >= 10 )); }; then
-        execute sudo apt install -y lazygit
-        return
-      fi
-    fi
-  fi
-
-  tmpdir="$(mktemp -d)"
-  local lazygit_error_log
-  lazygit_error_log="$(mktemp)"
-
-  # Run subshell with error capture
-  # Don't use set -e in subshell as it will exit immediately and we want to capture the error
-  if (
-    cd "${tmpdir}" || exit 1
-    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*' || echo "")
-    if [[ -z "$LAZYGIT_VERSION" ]]; then
-      echo "Failed to get lazygit version" >&2
-      exit 1
-    fi
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" || exit 1
-    tar xf lazygit.tar.gz lazygit || exit 1
-    sudo install lazygit -D -t /usr/local/bin/ || exit 1
-  ) > "$lazygit_error_log" 2>&1; then
-    rm -f "$lazygit_error_log"
-    rm -rf "${tmpdir}"
-    log_success
+  if execute brew install lazygit; then
+      log_success
   else
-    local exit_code=$?
-    # Capture error details BEFORE calling log_task_fail (which calls exit)
-    FAILED_COMMAND="lazygit installation (curl/tar/install in subshell)"
-    FAILED_COMMAND_LINE="${BASH_LINENO[0]}"
-    FAILED_COMMAND_OUTPUT="$(cat "$lazygit_error_log" 2>/dev/null || echo "Could not read error log")"
-
-    # Print error details before exiting
-    log_error "lazygit installation failed with exit code $exit_code"
-    echo "--- Error Output ---" >&2
-    cat "$lazygit_error_log" >&2
-    echo "--- End Error Output ---" >&2
-    rm -f "$lazygit_error_log"
-    rm -rf "${tmpdir}"
-
-    # Now call log_task_fail which will exit and trigger ERR trap
-    # But FAILED_COMMAND should already be set
-    log_task_fail
+      log_task_fail
   fi
 }
 
 function install_lazyjournal() {
-  if command -v lazyjournal >/dev/null 2>&1; then
-    log_task_start "Checking lazyjournal"
-    log_success
-    return
+  log_task_start "Installing lazyjournal"
+  if execute brew install lazyjournal; then
+      log_success
+  else
+      log_task_fail
   fi
-
-  log_info "Installing lazyjournal..."
-
-  if is_darwin; then
-    brew install lazyjournal
-    return
-  fi
-
-  if is_debian || is_ubuntu; then
-    arch=$(test "$(uname -m)" = "aarch64" && echo "arm64" || echo "amd64")
-    release_version=$(curl -L -sS -H 'Accept: application/json' https://github.com/Lifailon/lazyjournal/releases/latest | sed -e 's/.*"tag_name":"\([^"]*\)".*/\1/')
-    curl -L -sS "https://github.com/Lifailon/lazyjournal/releases/download/${release_version}/lazyjournal-${release_version}-${arch}.deb" -o /tmp/lazyjournal.deb
-    execute sudo apt install /tmp/lazyjournal.deb
-    return
-  fi
-
-  # For other systems (Fedora), use the install script
-  curl -sS https://raw.githubusercontent.com/Lifailon/lazyjournal/main/install.sh | bash
 }
 
 function install_cargo_binstall() {
   log_task_start "Installing cargo-binstall"
-  if ! command -v cargo-binstall >/dev/null 2>&1; then
-    if command -v brew >/dev/null 2>&1; then
-        if execute brew install cargo-binstall; then
-            log_success
-        else
-            log_task_fail
-        fi
-    else
-        log_warn "Manual install of cargo-binstall required on Linux if brew is missing"
-        # Optional: cargo install cargo-binstall
-    fi
+  if execute brew install cargo-binstall; then
+      log_success
   else
-    log_success
+      log_task_fail
   fi
 }
 
@@ -1146,19 +1042,10 @@ function system_update_linux() {
 
 function install_sk() {
   log_task_start "Installing sk"
-  if ! command -v sk >/dev/null 2>&1; then
-    if command -v brew >/dev/null 2>&1; then
-      if execute brew install sk; then
-          log_success
-      else
-          log_task_fail
-      fi
-    else
-      log_task_fail
-      log_warn "brew not found, cannot install sk"
-    fi
+  if execute brew install sk; then
+      log_success
   else
-    log_success
+      log_task_fail
   fi
 }
 
@@ -1183,14 +1070,10 @@ function install_tmux() {
 
 function install_zellij() {
   log_task_start "Installing zellij"
-  if ! command -v zellij >/dev/null 2>&1; then
-      if execute cargo binstall -y zellij; then
-        log_success
-      else
-        log_task_fail
-      fi
-  else
+  if execute brew install zellij; then
       log_success
+  else
+      log_task_fail
   fi
 }
 
@@ -1247,30 +1130,16 @@ function install_python_version() {
 }
 
 function install_fonts_and_ui() {
+  log_task_start "Installing Meslo Nerd Fonts"
+  if execute brew install font-meslo-lg-nerd-font; then
+      log_success
+  else
+      log_task_fail
+  fi
+
   if is_darwin; then
-    log_task_start "Installing Meslo Nerd Fonts"
-    if execute brew install font-meslo-lg-nerd-font; then
-        log_success
-    else
-        log_task_fail
-    fi
-
-
     defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
     defaults delete -g ApplePressAndHoldEnabled || true
-  else
-    log_task_start "Installing Meslo Nerd Fonts"
-    if is_debian || is_ubuntu; then
-        execute sudo apt install -y fontconfig unzip
-    elif is_fedora; then
-        execute sudo dnf install -y fontconfig unzip
-    fi
-
-    if execute brew install font-meslo-lg-nerd-font; then
-        log_success
-    else
-        log_task_fail
-    fi
   fi
 }
 
@@ -1323,33 +1192,28 @@ function main() {
     install_core_packages
     install_linux_basics
 
-    install_lazygit
-    install_lazyjournal
+    # Install all brew packages (dev tools, language servers, fonts, etc.)
+    install_brew_packages
 
     setup_shell
-    install_rust
     install_dust
 
     setup_ssh_keys
     setup_dotfiles
 
-    install_pyenv
-    install_starship
-    install_atuin
     install_python_version
-
-    install_cargo_binstall
-    install_sk
-    install_tmux
-    install_zellij
 
     docker_linux_install
     gcloud_linux_install
     install_orbstack
     krew_install_plugins || true
-    install_fonts_and_ui
     install_tpm
-    lsp_install
+
+    # macOS specific UI tweaks
+    if is_darwin; then
+        defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
+        defaults delete -g ApplePressAndHoldEnabled || true
+    fi
     log_success "Setup Complete!"
 
     if [ ${#POST_INSTALL_MESSAGES[@]} -gt 0 ]; then
