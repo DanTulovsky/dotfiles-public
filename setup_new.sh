@@ -1209,7 +1209,7 @@ function install_atuin() {
   if command -v atuin >/dev/null 2>&1; then
     log_success
   else
-    if execute bash -c "curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh"; then
+    if execute brew install atuin; then
         log_success
     else
         log_task_fail
@@ -1219,21 +1219,13 @@ function install_atuin() {
 
 function install_pyenv() {
   log_task_start "Installing pyenv"
-  if is_darwin; then
+  if command -v pyenv >/dev/null 2>&1; then
+    log_success
+  else
     if execute brew install pyenv pyenv-virtualenv; then
         log_success
     else
         log_task_fail
-    fi
-  else
-    if [[ -d ~/.pyenv ]]; then
-      log_success
-    else
-      if execute bash -c "curl https://pyenv.run | bash"; then
-        log_success
-      else
-        log_task_fail
-      fi
     fi
   fi
 }
