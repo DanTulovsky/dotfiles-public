@@ -1331,40 +1331,67 @@ function main() {
 
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
-        # Prompt for sudo password upfront to establish timestamp
-        sudo -v || {
-            log_error "Failed to obtain sudo privileges. Exiting."
-            exit 1
-        }
-        # Keep-alive: refresh sudo timestamp every 30 seconds (before default 5min expiry)
-        # Use sudo -v to actually refresh the timestamp, not just check it
-        # Run in subshell to avoid interfering with main script
-        (
-            # Ignore signals that might kill this process
-            trap '' HUP INT TERM
-            # Start refreshing immediately, then every 30 seconds
-            while true; do
-                # Check if parent process is still running first
-                if ! kill -0 "$$" 2>/dev/null; then
-                    exit 0
+        # Check if sudo supports timestamp caching by trying to validate
+        # If timestamp caching is not supported, sudo -v will always prompt
+        local sudo_supports_timestamp=false
+        if sudo -n true 2>/dev/null; then
+            # Already have a valid timestamp, so caching is supported
+            sudo_supports_timestamp=true
+        else
+            # Try to establish a timestamp
+            if sudo -v 2>/dev/null; then
+                # If sudo -v succeeded without prompting, timestamp caching is supported
+                sudo_supports_timestamp=true
+            else
+                # sudo -v prompted for password, which means either:
+                # 1. No timestamp exists yet (normal first run)
+                # 2. Timestamp caching is not supported
+                # We'll prompt for password and then check if we can use -n
+                sudo -v || {
+                    log_error "Failed to obtain sudo privileges. Exiting."
+                    exit 1
+                }
+                # Now check if -n works (means timestamp caching is supported)
+                if sudo -n true 2>/dev/null; then
+                    sudo_supports_timestamp=true
                 fi
-                # Refresh sudo timestamp (this extends it, preventing expiry)
-                # Use -v to refresh, but don't suppress errors completely - if it fails, exit
-                if ! sudo -v 2>/dev/null; then
-                    # If sudo -v fails, the timestamp might have expired
-                    # Try one more time, and if it still fails, exit
-                    sleep 1
-                    if ! sudo -v 2>/dev/null; then
+            fi
+        fi
+
+        # Only start keep-alive if timestamp caching is supported
+        if [[ "$sudo_supports_timestamp" == "true" ]]; then
+            # Keep-alive: refresh sudo timestamp every 30 seconds (before default 5min expiry)
+            # Use sudo -v to actually refresh the timestamp, not just check it
+            # Run in subshell to avoid interfering with main script
+            (
+                # Ignore signals that might kill this process
+                trap '' HUP INT TERM
+                # Start refreshing immediately, then every 30 seconds
+                while true; do
+                    # Check if parent process is still running first
+                    if ! kill -0 "$$" 2>/dev/null; then
                         exit 0
                     fi
-                fi
-                # Wait 30 seconds before next refresh (more frequent to prevent expiry)
-                sleep 30
-            done
-        ) &
-        local keepalive_pid=$!
-        # Disown the background process so it continues even if parent is in a pipe
-        disown "$keepalive_pid" 2>/dev/null || true
+                    # Refresh sudo timestamp (this extends it, preventing expiry)
+                    # Use -v to refresh, but don't suppress errors completely - if it fails, exit
+                    if ! sudo -v 2>/dev/null; then
+                        # If sudo -v fails, the timestamp might have expired
+                        # Try one more time, and if it still fails, exit
+                        sleep 1
+                        if ! sudo -v 2>/dev/null; then
+                            exit 0
+                        fi
+                    fi
+                    # Wait 30 seconds before next refresh (more frequent to prevent expiry)
+                    sleep 30
+                done
+            ) &
+            local keepalive_pid=$!
+            # Disown the background process so it continues even if parent is in a pipe
+            disown "$keepalive_pid" 2>/dev/null || true
+        else
+            log_warn "sudo timestamp caching not supported on this system. You may be prompted for sudo password multiple times."
+        fi
     fi
 
 
