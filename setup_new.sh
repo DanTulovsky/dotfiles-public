@@ -1327,24 +1327,27 @@ function main() {
 
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
-        sudo -v
-        # Keep-alive: refresh sudo timestamp every 50 seconds (before default 5min expiry)
+        # Prompt for sudo password upfront (will prompt even if timestamp exists)
+        # This ensures we have a valid timestamp to refresh
+        sudo -v || {
+            log_error "Failed to obtain sudo privileges. Exiting."
+            exit 1
+        }
+        # Keep-alive: refresh sudo timestamp every 45 seconds (before default 5min expiry)
         # Use sudo -v to actually refresh the timestamp, not just check it
         # Run in subshell to avoid interfering with main script
-        # Store the background PID so we can clean it up if needed
         (
-            # Initial short delay to let the script start
-            sleep 5
+            # Start refreshing immediately, then every 45 seconds
             while true; do
                 # Check if parent process is still running first
                 if ! kill -0 "$$" 2>/dev/null; then
                     exit 0
                 fi
                 # Refresh sudo timestamp (this extends it, preventing expiry)
-                # Redirect both stdout and stderr to avoid any prompts interfering
+                # Use -v to refresh, redirect output to avoid interfering with spinner
                 sudo -v >/dev/null 2>&1 || exit 0
-                # Wait 50 seconds before next refresh
-                sleep 50
+                # Wait 45 seconds before next refresh
+                sleep 45
             done
         ) &
         # Disown the background process so it continues even if parent is in a pipe
