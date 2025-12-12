@@ -225,16 +225,15 @@ function setup_shell() {
 
 function install_rust() {
     # --- Cargo / Rust ---
-    log_task_start "Instaling/updating Rust"
-    if ! command -v cargo >/dev/null 2>&1; then
-      if curl https://sh.rustup.rs -sSf | sh -s -- -y >/dev/null 2>&1; then
-          export PATH="$HOME/.cargo/bin:$PATH"
-          log_success
-      else
-          log_task_fail
-      fi
-    else
+    log_task_start "Installing Rust"
+    if command -v cargo >/dev/null 2>&1; then
         log_success
+    else
+        if execute brew install rust; then
+            log_success
+        else
+            log_task_fail
+        fi
     fi
 }
 
