@@ -506,29 +506,33 @@ function execute() {
     printf "\b\b\b\b\b\b"
   done
 
-  # Capture command details BEFORE wait, in case wait itself fails or triggers ERR trap
-  # Store in local vars first, then set globals after wait completes
-  local failed_cmd=""
-  local failed_line=""
-  local failed_output=""
-
+  # Wait for the process and capture exit code
+  # Temporarily disable ERR trap to prevent it from firing before we can capture error details
+  # We'll handle the error ourselves and re-enable the trap
+  local saved_trap
+  saved_trap="$(trap -p ERR)"
+  trap '' ERR  # Disable ERR trap temporarily
   wait "$pid"
   local exit_code=$?
+  # Re-enable ERR trap
+  eval "$saved_trap" 2>/dev/null || trap 'catch_error $?' ERR
 
   # Capture command details immediately when we detect a failure
-  # This ensures they're available even if ERR trap fires
+  # This ensures they're available even if ERR trap fires later
+  # CRITICAL: Set globals BEFORE any operation that might trigger ERR trap
   if [ $exit_code -ne 0 ]; then
-    failed_cmd="$cmd_string"
-    failed_line="${BASH_LINENO[1]}"
+    # Set globals FIRST, before any other operations
+    FAILED_COMMAND="$cmd_string"
+    FAILED_COMMAND_LINE="${BASH_LINENO[1]}"
     if [[ -f "$temp_log" ]]; then
-      failed_output="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
+      FAILED_COMMAND_OUTPUT="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
     else
-      failed_output="Error log file not found"
+      FAILED_COMMAND_OUTPUT="Error log file not found"
     fi
-    # Set global variables immediately so ERR trap can access them
-    FAILED_COMMAND="$failed_cmd"
-    FAILED_COMMAND_LINE="$failed_line"
-    FAILED_COMMAND_OUTPUT="$failed_output"
+    # Also set local vars for use in this function
+    local failed_cmd="$cmd_string"
+    local failed_line="${BASH_LINENO[1]}"
+    local failed_output="$FAILED_COMMAND_OUTPUT"
   fi
 
   if [ $exit_code -eq 0 ]; then
@@ -547,6 +551,7 @@ function execute() {
     if [[ "$silent" == "true" ]] && [[ "$VERBOSE" == "false" ]]; then
       # Even in silent mode, we should capture the error for the ERR trap
       # But don't print it here
+      # FAILED_COMMAND is already set above, so ERR trap will have it
       if [[ "$keep_log" == "false" ]]; then
           rm "$temp_log"
       fi
@@ -568,6 +573,7 @@ function execute() {
     fi
 
     # Return the exit code (may trigger set -e, but error is already printed)
+    # FAILED_COMMAND is already set above, so ERR trap will have it
     return $exit_code
   fi
 }
@@ -1026,13 +1032,18 @@ function install_lazygit() {
   local lazygit_error_log
   lazygit_error_log="$(mktemp)"
 
+  # Run subshell with error capture
+  # Don't use set -e in subshell as it will exit immediately and we want to capture the error
   if (
-    set -e
-    cd "${tmpdir}"
-    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*')
-    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz"
-    tar xf lazygit.tar.gz lazygit
-    sudo install lazygit -D -t /usr/local/bin/
+    cd "${tmpdir}" || exit 1
+    LAZYGIT_VERSION=$(curl -s "https://api.github.com/repos/jesseduffield/lazygit/releases/latest" | grep -Po '"tag_name": *"v\K[^"]*' || echo "")
+    if [[ -z "$LAZYGIT_VERSION" ]]; then
+      echo "Failed to get lazygit version" >&2
+      exit 1
+    fi
+    curl -Lo lazygit.tar.gz "https://github.com/jesseduffield/lazygit/releases/download/v${LAZYGIT_VERSION}/lazygit_${LAZYGIT_VERSION}_Linux_x86_64.tar.gz" || exit 1
+    tar xf lazygit.tar.gz lazygit || exit 1
+    sudo install lazygit -D -t /usr/local/bin/ || exit 1
   ) > "$lazygit_error_log" 2>&1; then
     rm -f "$lazygit_error_log"
     rm -rf "${tmpdir}"
