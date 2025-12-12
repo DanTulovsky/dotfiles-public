@@ -348,6 +348,7 @@ REQUIRED_COMMANDS=(
   keychain
   vim
   fish
+  unzip
 )
 
 # Core packages required on all systems
