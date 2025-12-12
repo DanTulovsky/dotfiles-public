@@ -1019,13 +1019,19 @@ function install_lazygit() {
       return
     fi
   elif is_ubuntu; then
-    local major
-    local minor
-    major="$(get_os_release_major_version)"
-    minor="$(get_os_release_minor_version)"
-    if [[ -n ${major} && -n ${minor} ]] && { (( major > 25 )) || (( major == 25 && minor >= 10 )); }; then
-      execute sudo apt install -y lazygit
-      return
+    # Skip apt install on Pop!_OS as lazygit is not available in their repos
+    if is_pop_os; then
+      # Fall through to manual installation
+      :
+    else
+      local major
+      local minor
+      major="$(get_os_release_major_version)"
+      minor="$(get_os_release_minor_version)"
+      if [[ -n ${major} && -n ${minor} ]] && { (( major > 25 )) || (( major == 25 && minor >= 10 )); }; then
+        execute sudo apt install -y lazygit
+        return
+      fi
     fi
   fi
 
