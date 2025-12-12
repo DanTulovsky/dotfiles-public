@@ -487,36 +487,58 @@ function execute() {
     temp_log=$(mktemp)
   fi
 
-  # Run command in background
-  if [[ "${EXECUTE_LOG_APPEND:-}" == "true" ]]; then
-      "$@" >> "$temp_log" 2>&1 &
-  else
-      "$@" > "$temp_log" 2>&1 &
+  # Check if command contains sudo - if so, we need to handle prompts differently
+  local cmd_has_sudo=false
+  if [[ "$cmd_string" == *"sudo"* ]]; then
+    cmd_has_sudo=true
   fi
-  local pid=$!
 
-  # Spinner loop
-  local delay=0.1
-  local spinstr='|/-\'
-  while kill -0 "$pid" 2>/dev/null; do
-    local temp=${spinstr#?}
-    printf " [%c]  " "$spinstr"
-    local spinstr=$temp${spinstr%"$temp"}
-    sleep $delay
-    printf "\b\b\b\b\b\b"
-  done
+  local exit_code=0
+  local pid=""
 
-  # Wait for the process and capture exit code
-  # Temporarily disable ERR trap and set -e to prevent trap from firing before we capture error
-  local saved_trap
-  saved_trap="$(trap -p ERR 2>/dev/null || echo 'trap catch_error ERR')"
-  set +e  # Temporarily disable exit on error
-  trap '' ERR  # Disable ERR trap temporarily
-  wait "$pid"
-  local exit_code=$?
-  # Re-enable set -e and ERR trap
-  set -e
-  eval "$saved_trap" 2>/dev/null || trap 'catch_error $?' ERR
+  # For sudo commands, run in foreground to allow prompts to be visible
+  # For other commands, run in background with spinner
+  if [[ "$cmd_has_sudo" == "true" ]]; then
+    # Run sudo command in foreground so prompts are visible
+    # Still capture output to log file
+    if [[ "${EXECUTE_LOG_APPEND:-}" == "true" ]]; then
+        "$@" 2>&1 | tee -a "$temp_log"
+    else
+        "$@" 2>&1 | tee "$temp_log"
+    fi
+    exit_code=${PIPESTATUS[0]}
+  else
+    # For non-sudo commands, run in background with spinner
+    if [[ "${EXECUTE_LOG_APPEND:-}" == "true" ]]; then
+        "$@" >> "$temp_log" 2>&1 &
+    else
+        "$@" > "$temp_log" 2>&1 &
+    fi
+    pid=$!
+
+    # Spinner loop
+    local delay=0.1
+    local spinstr='|/-\'
+    while kill -0 "$pid" 2>/dev/null; do
+      local temp=${spinstr#?}
+      printf " [%c]  " "$spinstr"
+      local spinstr=$temp${spinstr%"$temp"}
+      sleep $delay
+      printf "\b\b\b\b\b\b"
+    done
+
+    # Wait for the process and capture exit code
+    # Temporarily disable ERR trap and set -e to prevent trap from firing before we capture error
+    local saved_trap
+    saved_trap="$(trap -p ERR 2>/dev/null || echo 'trap catch_error ERR')"
+    set +e  # Temporarily disable exit on error
+    trap '' ERR  # Disable ERR trap temporarily
+    wait "$pid"
+    exit_code=$?
+    # Re-enable set -e and ERR trap
+    set -e
+    eval "$saved_trap" 2>/dev/null || trap 'catch_error $?' ERR
+  fi
 
   # Capture command details immediately when we detect a failure
   # This ensures they're available even if ERR trap fires later
