@@ -362,6 +362,7 @@ REQUIRED_PACKAGES=(
   duf
   lsd
   ripgrep
+  jq
 )
 
 # Brew packages (tools installed via Homebrew)
