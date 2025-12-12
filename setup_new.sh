@@ -594,6 +594,10 @@ function is_darwin() {
 }
 
 function is_debian() {
+  # Pop!_OS is Ubuntu-based, so exclude it from Debian detection
+  if is_pop_os; then
+    return 1
+  fi
   [ -f /etc/debian_version ] || (uname -a | grep -i debian > /dev/null 2>&1)
   return $?
 }
@@ -1327,13 +1331,8 @@ function main() {
 
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
-        # Prompt for sudo password upfront (will prompt even if timestamp exists)
-        # This ensures we have a valid timestamp to refresh
-        sudo -v || {
-            log_error "Failed to obtain sudo privileges. Exiting."
-            exit 1
-        }
-        # Keep-alive: refresh sudo timestamp every 45 seconds (before default 5min expiry)
+        sudo -v
+        # Keep-alive: refresh sudo timestamp every 50 seconds (before default 5min expiry)
         # Use sudo -v to actually refresh the timestamp, not just check it
         # Run in subshell to avoid interfering with main script
         (
