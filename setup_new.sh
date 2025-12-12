@@ -26,15 +26,20 @@ function catch_error() {
   echo "Exit code: $exit_code" >&2
 
   # Show the actual failing command if we captured it
-  if [[ -n "$FAILED_COMMAND" ]]; then
-    echo "Failed command: $FAILED_COMMAND" >&2
-    if [[ -n "$FAILED_COMMAND_LINE" ]]; then
-      echo "Line: $FAILED_COMMAND_LINE" >&2
+  # Use a local copy to avoid issues with variable scope
+  local failed_cmd="${FAILED_COMMAND:-}"
+  local failed_line="${FAILED_COMMAND_LINE:-}"
+  local failed_output="${FAILED_COMMAND_OUTPUT:-}"
+
+  if [[ -n "$failed_cmd" ]]; then
+    echo "Failed command: $failed_cmd" >&2
+    if [[ -n "$failed_line" ]]; then
+      echo "Line: $failed_line" >&2
     fi
-    if [[ -n "$FAILED_COMMAND_OUTPUT" ]]; then
+    if [[ -n "$failed_output" ]]; then
       echo "" >&2
       echo "--- Error Output ---" >&2
-      echo "$FAILED_COMMAND_OUTPUT" >&2
+      echo "$failed_output" >&2
       echo "--- End Error Output ---" >&2
     else
       echo "" >&2
@@ -49,6 +54,11 @@ function catch_error() {
     echo "" >&2
     echo "Note: Error details were not captured. This may indicate an error occurred" >&2
     echo "      in a subshell or before error handling was initialized." >&2
+    echo "" >&2
+    echo "Debug info:" >&2
+    echo "  FAILED_COMMAND='${FAILED_COMMAND:-<empty>}'" >&2
+    echo "  FAILED_COMMAND_LINE='${FAILED_COMMAND_LINE:-<empty>}'" >&2
+    echo "  FAILED_COMMAND_OUTPUT length: ${#FAILED_COMMAND_OUTPUT}" >&2
   fi
 
   echo "========================================" >&2
@@ -444,6 +454,12 @@ function log_task_fail() {
   else
       echo -e "\033[31m[FAILED]\033[0m"
   fi
+  # Before exiting, ensure FAILED_COMMAND is set if it's not already
+  # This helps when log_task_fail is called directly without going through execute
+  if [[ -z "$FAILED_COMMAND" ]]; then
+    FAILED_COMMAND="${last_command:-log_task_fail called}"
+    FAILED_COMMAND_LINE="${BASH_LINENO[0]}"
+  fi
   exit 1
 }
 
@@ -490,19 +506,29 @@ function execute() {
     printf "\b\b\b\b\b\b"
   done
 
+  # Capture command details BEFORE wait, in case wait itself fails or triggers ERR trap
+  # Store in local vars first, then set globals after wait completes
+  local failed_cmd=""
+  local failed_line=""
+  local failed_output=""
+
   wait "$pid"
   local exit_code=$?
 
   # Capture command details immediately when we detect a failure
   # This ensures they're available even if ERR trap fires
   if [ $exit_code -ne 0 ]; then
-    FAILED_COMMAND="$cmd_string"
-    FAILED_COMMAND_LINE="${BASH_LINENO[1]}"
+    failed_cmd="$cmd_string"
+    failed_line="${BASH_LINENO[1]}"
     if [[ -f "$temp_log" ]]; then
-      FAILED_COMMAND_OUTPUT="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
+      failed_output="$(cat "$temp_log" 2>/dev/null || echo "Could not read error log")"
     else
-      FAILED_COMMAND_OUTPUT="Error log file not found"
+      failed_output="Error log file not found"
     fi
+    # Set global variables immediately so ERR trap can access them
+    FAILED_COMMAND="$failed_cmd"
+    FAILED_COMMAND_LINE="$failed_line"
+    FAILED_COMMAND_OUTPUT="$failed_output"
   fi
 
   if [ $exit_code -eq 0 ]; then
@@ -1013,15 +1039,21 @@ function install_lazygit() {
     log_success
   else
     local exit_code=$?
+    # Capture error details BEFORE calling log_task_fail (which calls exit)
     FAILED_COMMAND="lazygit installation (curl/tar/install in subshell)"
     FAILED_COMMAND_LINE="${BASH_LINENO[0]}"
     FAILED_COMMAND_OUTPUT="$(cat "$lazygit_error_log" 2>/dev/null || echo "Could not read error log")"
+
+    # Print error details before exiting
     log_error "lazygit installation failed with exit code $exit_code"
     echo "--- Error Output ---" >&2
     cat "$lazygit_error_log" >&2
     echo "--- End Error Output ---" >&2
     rm -f "$lazygit_error_log"
     rm -rf "${tmpdir}"
+
+    # Now call log_task_fail which will exit and trigger ERR trap
+    # But FAILED_COMMAND should already be set
     log_task_fail
   fi
 }
@@ -1085,14 +1117,14 @@ function system_update_linux() {
           execute -s sudo apt -y modernize-sources || true
       fi
       if [ -f /etc/apt/sources.list ]; then
-        if sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
+        if execute sudo sed -i -e 's/^# *deb-src/deb-src/g' /etc/apt/sources.list; then
             :
         else
             log_warn "Failed to enable deb-src in sources.list"
         fi
       fi
       if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then
-         if sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources; then
+         if execute sudo sed -i 's/^Types: deb$/Types: deb deb-src/' /etc/apt/sources.list.d/ubuntu.sources; then
             :
          else
             log_warn "Failed to enable deb-src in ubuntu.sources"
@@ -1278,21 +1310,27 @@ function main() {
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
         sudo -v
-        # Keep-alive: refresh sudo timestamp every 55 seconds (before default 5min expiry)
+        # Keep-alive: refresh sudo timestamp every 50 seconds (before default 5min expiry)
         # Use sudo -v to actually refresh the timestamp, not just check it
         # Run in subshell to avoid interfering with main script
+        # Store the background PID so we can clean it up if needed
         (
+            # Initial short delay to let the script start
+            sleep 5
             while true; do
-                sleep 55
-                # Check if parent process is still running
+                # Check if parent process is still running first
                 if ! kill -0 "$$" 2>/dev/null; then
                     exit 0
                 fi
                 # Refresh sudo timestamp (this extends it, preventing expiry)
-                # If it fails (e.g., timestamp expired), exit silently
-                sudo -v 2>/dev/null || exit 0
+                # Redirect both stdout and stderr to avoid any prompts interfering
+                sudo -v >/dev/null 2>&1 || exit 0
+                # Wait 50 seconds before next refresh
+                sleep 50
             done
         ) &
+        # Disown the background process so it continues even if parent is in a pipe
+        disown $! 2>/dev/null || true
     fi
 
 
