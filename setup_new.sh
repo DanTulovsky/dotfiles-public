@@ -1313,6 +1313,11 @@ function install_orbstack() {
 function main() {
     log_info "Starting Setup..."
 
+    # Add Homebrew to PATH early if it exists (prevents unnecessary reinstallation)
+    if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+        eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+    fi
+
     # Establish sudo timestamp upfront (will be cleared by Homebrew installer if it runs)
     if command -v sudo >/dev/null 2>&1; then
         sudo -v || {
