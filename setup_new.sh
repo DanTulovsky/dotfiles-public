@@ -1331,26 +1331,40 @@ function main() {
 
     # Refresh sudo privileges upfront to prevent hidden prompt issues with 'execute'
     if command -v sudo >/dev/null 2>&1; then
-        sudo -v
-        # Keep-alive: refresh sudo timestamp every 50 seconds (before default 5min expiry)
+        # Prompt for sudo password upfront to establish timestamp
+        sudo -v || {
+            log_error "Failed to obtain sudo privileges. Exiting."
+            exit 1
+        }
+        # Keep-alive: refresh sudo timestamp every 30 seconds (before default 5min expiry)
         # Use sudo -v to actually refresh the timestamp, not just check it
         # Run in subshell to avoid interfering with main script
         (
-            # Start refreshing immediately, then every 45 seconds
+            # Ignore signals that might kill this process
+            trap '' HUP INT TERM
+            # Start refreshing immediately, then every 30 seconds
             while true; do
                 # Check if parent process is still running first
                 if ! kill -0 "$$" 2>/dev/null; then
                     exit 0
                 fi
                 # Refresh sudo timestamp (this extends it, preventing expiry)
-                # Use -v to refresh, redirect output to avoid interfering with spinner
-                sudo -v >/dev/null 2>&1 || exit 0
-                # Wait 45 seconds before next refresh
-                sleep 45
+                # Use -v to refresh, but don't suppress errors completely - if it fails, exit
+                if ! sudo -v 2>/dev/null; then
+                    # If sudo -v fails, the timestamp might have expired
+                    # Try one more time, and if it still fails, exit
+                    sleep 1
+                    if ! sudo -v 2>/dev/null; then
+                        exit 0
+                    fi
+                fi
+                # Wait 30 seconds before next refresh (more frequent to prevent expiry)
+                sleep 30
             done
         ) &
+        local keepalive_pid=$!
         # Disown the background process so it continues even if parent is in a pipe
-        disown $! 2>/dev/null || true
+        disown "$keepalive_pid" 2>/dev/null || true
     fi
 
 
