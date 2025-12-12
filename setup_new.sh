@@ -93,35 +93,25 @@ function pre_install_git() {
 }
 
 function install_homebrew() {
-    # Initial Mac Setup
-    if is_darwin; then
-      if ! command -v brew > /dev/null 2>&1; then
-        log_task_start "Installing Homebrew"
-        if execute /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-            log_success
-        else
-            log_task_fail
-        fi
-        log_task_start "Installing Homebrew packages"
-        if execute brew install curl wget git fzf keychain tmux vim fish direnv; then
-            log_success
-        else
-            log_task_fail
-        fi
-      fi
+    if command -v brew >/dev/null 2>&1; then
+        return
     fi
 
-    # Install Homebrew on Linux if missing
-    if ! command -v brew >/dev/null 2>&1; then
-         if is_linux; then
-            log_task_start "Installing Homebrew for Linux"
-            if NONINTERACTIVE=1 execute /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
-                eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-                log_success
-            else
-                log_task_fail
-            fi
-         fi
+    log_task_start "Installing Homebrew"
+
+    # Install Homebrew non-interactively
+    if NONINTERACTIVE=1 execute /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"; then
+        # Eval shellenv based on platform and architecture
+        if is_linux && [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
+            eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+        elif is_darwin && [[ -x /opt/homebrew/bin/brew ]]; then
+            eval "$(/opt/homebrew/bin/brew shellenv)"
+        elif is_darwin && [[ -x /usr/local/bin/brew ]]; then
+            eval "$(/usr/local/bin/brew shellenv)"
+        fi
+        log_success
+    else
+        log_task_fail
     fi
 }
 
@@ -154,14 +144,22 @@ function install_core_packages() {
 
 function install_brew_packages() {
     # --- Install Brew Packages ---
-    for pkg in "${BREW_PACKAGES[@]}"; do
-        log_task_start "Installing ${pkg}"
-        if execute brew install "${pkg}"; then
-            log_success
+    log_task_start "Installing brew packages (${#BREW_PACKAGES[@]} packages)"
+    if execute brew install "${BREW_PACKAGES[@]}"; then
+        log_success
+    else
+        log_task_fail
+    fi
+
+    # Run custom homebrew apps script if it exists
+    if [ -f ~/.homebrew_apps ]; then
+        log_info "Running custom ~/.homebrew_apps script"
+        if execute bash ~/.homebrew_apps; then
+            log_success "Custom homebrew apps installed"
         else
-            log_warn "Failed to install ${pkg} via brew, continuing..."
+            log_warn "Custom homebrew apps script failed, continuing..."
         fi
-    done
+    fi
 }
 
 function install_linux_basics() {
@@ -368,6 +366,9 @@ REQUIRED_PACKAGES=(
 # Brew packages (tools installed via Homebrew)
 BREW_PACKAGES=(
   # Development tools
+  curl
+  wget
+  direnv
   pyenv
   pyenv-virtualenv
   starship
