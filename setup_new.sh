@@ -1167,17 +1167,6 @@ function install_orbstack() {
   fi
 }
 
-function configure_macos_ui() {
-  if ! is_darwin; then
-    return
-  fi
-
-  log_task_start "Configuring macOS UI"
-  defaults write com.microsoft.VSCodeExploration ApplePressAndHoldEnabled -bool false
-  defaults delete -g ApplePressAndHoldEnabled 2>/dev/null || true
-  log_success
-}
-
 # ==============================================================================
 # Main Execution Logic
 # ==============================================================================
@@ -1220,7 +1209,6 @@ function main() {
     install_orbstack
     krew_install_plugins || true
     install_tpm
-    configure_macos_ui
 
     log_success "Setup Complete!"
 
