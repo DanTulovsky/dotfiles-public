@@ -507,14 +507,15 @@ function execute() {
   done
 
   # Wait for the process and capture exit code
-  # Temporarily disable ERR trap to prevent it from firing before we can capture error details
-  # We'll handle the error ourselves and re-enable the trap
+  # Temporarily disable ERR trap and set -e to prevent trap from firing before we capture error
   local saved_trap
-  saved_trap="$(trap -p ERR)"
+  saved_trap="$(trap -p ERR 2>/dev/null || echo 'trap catch_error ERR')"
+  set +e  # Temporarily disable exit on error
   trap '' ERR  # Disable ERR trap temporarily
   wait "$pid"
   local exit_code=$?
-  # Re-enable ERR trap
+  # Re-enable set -e and ERR trap
+  set -e
   eval "$saved_trap" 2>/dev/null || trap 'catch_error $?' ERR
 
   # Capture command details immediately when we detect a failure
