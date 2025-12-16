@@ -398,6 +398,11 @@ BREW_PACKAGES=(
 
   # Fonts
   font-meslo-lg-nerd-font
+
+  # Tools
+  cheat
+  tldr
+  chaf
 )
 
 # Linux General
