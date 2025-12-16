@@ -1166,6 +1166,52 @@ function install_tpm() {
   fi
 }
 
+function install_cheatsheets() {
+  log_task_start "Installing cheatsheets"
+
+  if command -v cheatsheets >/dev/null 2>&1; then
+    log_success "cheatsheets already installed"
+    return 0
+  fi
+
+  local dest_dir
+  if [[ -d "/opt/homebrew/bin" ]]; then
+    dest_dir="/opt/homebrew/bin"
+  else
+    dest_dir="/usr/local/bin"
+  fi
+
+  local dest_path="${dest_dir}/cheatsheets"
+  if [[ -x "$dest_path" ]]; then
+    log_success "cheatsheets already installed"
+    return 0
+  fi
+
+  local tmp_file
+  tmp_file="$(mktemp)"
+
+  if ! execute curl -fsSL -o "$tmp_file" "https://raw.githubusercontent.com/cheat/cheat/master/scripts/git/cheatsheets"; then
+    rm -f "$tmp_file" || true
+    log_task_fail
+  fi
+
+  if ! execute sudo mkdir -p "$dest_dir"; then
+    rm -f "$tmp_file" || true
+    log_task_fail
+  fi
+
+  if ! execute sudo install -m 0755 "$tmp_file" "$dest_path"; then
+    rm -f "$tmp_file" || true
+    log_task_fail
+  fi
+
+  rm -f "$tmp_file" || true
+
+  mkdir -p ~/.config/cheat/cheatsheets/community
+  cheatsheets pull
+  log_success
+}
+
 function install_orbstack() {
   if is_darwin; then
       if ! command -v orb; then
@@ -1216,6 +1262,7 @@ function main() {
     install_orbstack
     krew_install_plugins || true
     install_tpm
+    install_cheatsheets
 
     log_success "Setup Complete!"
 
