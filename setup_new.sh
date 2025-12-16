@@ -402,7 +402,7 @@ BREW_PACKAGES=(
   # Tools
   cheat
   tldr
-  chaf
+  chafa
 )
 
 # Linux General
