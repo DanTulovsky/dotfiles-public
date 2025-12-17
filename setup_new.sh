@@ -406,6 +406,9 @@ BREW_PACKAGES=(
   zoxide
   procs
   go-task/tap/go-task
+  viddy
+  wader/tap/fq
+  dive
 )
 
 # Linux General
