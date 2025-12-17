@@ -403,6 +403,9 @@ BREW_PACKAGES=(
   cheat
   tldr
   chafa
+  zoxide
+  procs
+  go-task/tap/go-task
 )
 
 # Linux General
