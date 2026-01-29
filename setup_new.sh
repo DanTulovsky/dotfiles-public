@@ -409,6 +409,11 @@ BREW_PACKAGES=(
   viddy
   wader/tap/fq
   dive
+  numbat
+  q
+  zenith
+  tz
+  lf
 )
 
 # Linux General
