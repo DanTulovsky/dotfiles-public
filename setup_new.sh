@@ -400,8 +400,7 @@ BREW_PACKAGES=(
   font-meslo-lg-nerd-font
 
   # Tools
-  # TODO: fix
-  # cheat
+  cheat
   tldr
   chafa
   zoxide
@@ -1274,7 +1273,7 @@ function main() {
     install_orbstack
     krew_install_plugins || true
     install_tpm
-    install_cheatsheets
+    # install_cheatsheets
 
     log_success "Setup Complete!"
 
