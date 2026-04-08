@@ -400,7 +400,8 @@ BREW_PACKAGES=(
   font-meslo-lg-nerd-font
 
   # Tools
-  cheat
+  # TODO: fix
+  # cheat
   tldr
   chafa
   zoxide
